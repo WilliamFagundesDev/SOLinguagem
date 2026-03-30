@@ -1,0 +1,68 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #1e1e1e;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: #2d2d2d;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #007acc;
+}
+
+button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #005999;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.editor-container {
+    flex: 2;
+    overflow: hidden;
+}
+
+/* Força o CodeMirror a ocupar o espaço todo */
+.CodeMirror {
+    height: 100% !important;
+    font-size: 16px;
+}
+
+.terminal-container {
+    flex: 1;
+    background-color: #000;
+    padding: 15px;
+    border-top: 2px solid #333;
+    overflow-y: auto;
+}
+
+#terminal {
+    color: #4af626;
+    margin-top: 10px;
+    font-family: 'Courier New', Courier, monospace;
+}

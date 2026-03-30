@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOL IDE</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>IDE Linguagem SOL</h1>
+        <button id="btn-compile">Compilar e Gerar Arquivos</button>
+    </header>
+    
+    <main>
+        <div class="editor-container">
+            <textarea id="editor"></textarea>
+        </div>
+        <div class="terminal-container">
+            <h3>Terminal de Compilação</h3>
+            <pre id="terminal">Aguardando código...</pre>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="ide.js"></script>
+</body>
+</html>
