@@ -5,26 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOL IDE</title>
     
+    <!-- Fontes Modernas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- CodeMirror e Tema -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/nord.min.css"> <!-- Mudamos para um tema que combina mais com vidro -->
     
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>IDE Linguagem SOL</h1>
-        <button id="btn-compile">Compilar e Gerar Arquivos</button>
-    </header>
-    
-    <main>
-        <div class="editor-container">
+    <!-- Background do "Universo" -->
+    <div class="ambient-background">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Esquerda Expansível -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-icon">✧</span>
+                <span class="brand-text">SOL IDE</span>
+            </div>
+            
+            <div class="sidebar-text-vertical">MENU</div>
+
+            <ul class="sidebar-options">
+                <li class="menu-category">EXPLORAR ESPAÇO</li>
+                <li class="active"><span class="icon">✦</span> Novo Arquivo</li>
+                <li><span class="icon">◂</span> Abrir Constelação</li>
+                <li><span class="icon">▾</span> Salvar Projeto</li>
+                
+                <li class="menu-category">HARDWARE</li>
+                <li><span class="icon">◈</span> Conectar ESP32</li>
+                <li><span class="icon">◍</span> Monitor Serial</li>
+                
+                <li class="menu-category">SISTEMA</li>
+                <li><span class="icon">⚙</span> Ajustes do Motor</li>
+                <li><span class="icon">◐</span> Trocar Tema</li>
+            </ul>
+        </aside>
+
+        <!-- Área Central: Editor -->
+        <main class="editor-container">
+            <div class="editor-header">
+                <div class="window-controls">
+                    <span class="dot close"></span>
+                    <span class="dot minimize"></span>
+                    <span class="dot expand"></span>
+                </div>
+                <div class="file-tabs">
+                    <div class="tab active">missao_alpha.sol</div>
+                </div>
+            </div>
             <textarea id="editor"></textarea>
-        </div>
-        <div class="terminal-container">
-            <h3>Terminal de Compilação</h3>
-            <pre id="terminal">Aguardando código...</pre>
-        </div>
-    </main>
+        </main>
+
+        <!-- Área Direita: Terminal -->
+        <aside class="terminal-container">
+            <div class="terminal-header">
+                <h3 class="terminal-title">TERMINAL DE CONTROLE</h3>
+                <span class="status-indicator">Online</span>
+            </div>
+            <pre id="terminal">Conexão com a base estabelecida.
+Aguardando códigos de lançamento...</pre>
+            
+            <!-- Botão Flutuante Premium -->
+            <button id="btn-compile" class="fab-btn" title="Iniciar Compilação">
+                <span class="fab-icon">⚡</span>
+            </button>
+        </aside>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="ide.js"></script>

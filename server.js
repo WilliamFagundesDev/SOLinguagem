@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const { compileSOL } = require('./compiler'); // Importando o nosso novo compilador!
 
 const app = express();
 const PORT = 3000;
@@ -14,22 +15,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.post('/compile', (req, res) => {
     const solCode = req.body.code;
     
-    console.log("Código recebido da IDE:");
+    console.log("Código estelar recebido da IDE:");
     console.log(solCode);
 
-    // Aqui, no futuro, chamaremos:
-    // 1. Analisador Léxico
-    // 2. Analisador Sintático
-    // 3. Gerador de Código
+    // Passa o código para as 3 fases do compilador
+    const result = compileSOL(solCode);
 
-    // Por enquanto, vamos apenas simular um retorno de sucesso
     res.json({ 
-        status: "success", 
-        message: "Compilação simulada com sucesso! Em breve, os arquivos serão gerados aqui.",
-        logs: "Analisando sintaxe... OK.\nGerando código C++... OK."
+        status: result.status, 
+        message: "Operação finalizada.",
+        logs: result.logs
     });
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 IDE Web rodando em http://localhost:${PORT}`);
+    console.log(`🚀 Base de lançamento SOL IDE pronta em http://localhost:${PORT}`);
 });

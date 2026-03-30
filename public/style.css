@@ -1,68 +1,382 @@
+/* Reset Premium e Tipografia */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+    --bg-base: #06060a;
+    --glass-bg: rgba(20, 20, 30, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --accent-glow: #00e5ff;
+    --accent-glow-secondary: #7000ff;
+    --text-main: #f0f0f5;
+    --text-muted: #8b8c91;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
 }
 
 body {
-    background-color: #1e1e1e;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
+    background-color: var(--bg-base);
+    color: var(--text-main);
     height: 100vh;
+    overflow: hidden;
+    position: relative;
 }
 
-header {
-    background-color: #2d2d2d;
-    padding: 15px 20px;
+/* === Ambient Background (Efeito Apple/Aurora) === */
+.ambient-background {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.4;
+    animation: float 20s infinite ease-in-out alternate;
+}
+.orb-1 {
+    top: -10%; left: -10%;
+    width: 600px; height: 600px;
+    background: var(--accent-glow-secondary);
+}
+.orb-2 {
+    bottom: -20%; right: -10%;
+    width: 500px; height: 500px;
+    background: var(--accent-glow);
+    animation-delay: -5s;
+}
+@keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(50px, 50px) scale(1.1); }
+}
+
+/* === Layout Principal === */
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+
+/* === Sidebar Esquerda Expansível (Glassmorphism) === */
+.sidebar {
+    background: var(--glass-bg);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-right: 1px solid var(--glass-border);
+    width: 70px;
+    transition: width 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.2);
+}
+
+.sidebar:hover {
+    width: 280px;
+}
+
+.sidebar-brand {
+    padding: 24px 0;
+    display: flex;
+    align-items: center;
+    width: 280px; /* Largura total da sidebar expandida */
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.brand-icon {
+    width: 70px;
+    text-align: center;
+    font-size: 24px;
+    color: var(--accent-glow);
+    flex-shrink: 0;
+}
+
+.brand-text {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.sidebar:hover .brand-text {
+    opacity: 1;
+    transition-delay: 0.1s;
+}
+
+/* Texto vertical quando minimizado */
+.sidebar-text-vertical {
+    position: absolute;
+    top: 50%;
+    left: 35px; /* Centro dos 70px */
+    transform: translate(-50%, -50%) rotate(-90deg);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 4px;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.sidebar:hover .sidebar-text-vertical {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Opções do Menu */
+.sidebar-options {
+    list-style: none;
+    width: 280px;
+    padding: 20px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar:hover .sidebar-options {
+    opacity: 1;
+    transition-delay: 0.1s;
+}
+
+.menu-category {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    padding-left: 10px;
+}
+
+.sidebar-options li:not(.menu-category) {
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 12px 15px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-options li:not(.menu-category) .icon {
+    font-size: 16px;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
+.sidebar-options li:not(.menu-category):hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-options li:not(.menu-category):hover .icon {
+    color: var(--accent-glow);
+}
+
+.sidebar-options li.active {
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--accent-glow);
+}
+
+.sidebar-options li.active .icon {
+    color: var(--accent-glow);
+}
+
+/* === Área Central: Editor de Código === */
+.editor-container {
+    flex: 1.6;
+    display: flex;
+    flex-direction: column;
+    background: rgba(10, 10, 15, 0.6);
+    backdrop-filter: blur(10px);
+    position: relative;
+}
+
+/* Estilo Apple MacOS Header */
+.editor-header {
+    height: 50px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+}
+
+.window-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.dot.close { background-color: #ff5f56; }
+.dot.minimize { background-color: #ffbd2e; }
+.dot.expand { background-color: #27c93f; }
+
+.file-tabs {
+    display: flex;
+    height: 100%;
+}
+
+.tab {
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+.tab.active {
+    color: var(--text-main);
+    border-bottom-color: var(--accent-glow);
+    background: rgba(255,255,255,0.03);
+}
+
+/* Customização Premium do CodeMirror */
+.CodeMirror {
+    height: calc(100% - 50px) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 15px;
+    line-height: 1.6;
+    background-color: transparent !important; /* Deixa o vidro aparecer */
+    color: #f8f8f2 !important;
+}
+
+.CodeMirror-gutters {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-right: 1px solid var(--glass-border) !important;
+}
+
+.CodeMirror-linenumber {
+    color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* === Área Direita: Terminal === */
+.terminal-container {
+    flex: 1;
+    background: rgba(5, 5, 8, 0.7);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-left: 1px solid var(--glass-border);
+    padding: 25px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #007acc;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 10px;
 }
 
-button {
-    background-color: #007acc;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 4px;
+.terminal-title {
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 2px;
+    font-weight: 600;
 }
 
-button:hover {
-    background-color: #005999;
-}
-
-main {
+.status-indicator {
+    font-size: 12px;
+    color: #4af626;
     display: flex;
-    flex-direction: column;
-    flex: 1;
+    align-items: center;
+    gap: 6px;
 }
-
-.editor-container {
-    flex: 2;
-    overflow: hidden;
-}
-
-/* Força o CodeMirror a ocupar o espaço todo */
-.CodeMirror {
-    height: 100% !important;
-    font-size: 16px;
-}
-
-.terminal-container {
-    flex: 1;
-    background-color: #000;
-    padding: 15px;
-    border-top: 2px solid #333;
-    overflow-y: auto;
+.status-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    background-color: #4af626;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #4af626;
 }
 
 #terminal {
-    color: #4af626;
-    margin-top: 10px;
-    font-family: 'Courier New', Courier, monospace;
+    color: #e0e0e0;
+    font-family: var(--font-mono);
+    white-space: pre-wrap;
+    flex: 1;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* === Botão Flutuante (FAB) Premium === */
+.fab-btn {
+    position: absolute;
+    bottom: 35px;
+    right: 35px;
+    width: 65px;
+    height: 65px;
+    border-radius: 22px; /* iOS Squircle Look */
+    background: linear-gradient(135deg, #00e5ff, #0055ff);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 26px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 
+        0 12px 30px rgba(0, 119, 255, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.4);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 100;
+}
+
+.fab-btn:hover {
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 
+        0 15px 40px rgba(0, 229, 255, 0.5),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+}
+
+.fab-btn:active {
+    transform: translateY(2px) scale(0.97);
+    box-shadow: 0 5px 15px rgba(0, 119, 255, 0.3);
+}
+
+/* Scrollbar Customizada (Dark/Minimalista) */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
