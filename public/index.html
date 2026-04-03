@@ -12,7 +12,7 @@
     
     <!-- CodeMirror e Tema -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/nord.min.css"> <!-- Mudamos para um tema que combina mais com vidro -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/nord.min.css"> 
     
     <link rel="stylesheet" href="style.css">
 </head>
@@ -36,8 +36,10 @@
             <ul class="sidebar-options">
                 <li class="menu-category">EXPLORAR ESPAÇO</li>
                 <li class="active"><span class="icon">✦</span> Novo Arquivo</li>
-                <li><span class="icon">◂</span> Abrir Constelação</li>
+                <li><span class="icon">◂</span> Importar Projeto</li>
                 <li><span class="icon">▾</span> Salvar Projeto</li>
+                <!-- NOVA OPÇÃO DE EXPORTAR ADICIONADA AQUI -->
+                <li><span class="icon">⤓</span> Exportar Projeto</li>
                 
                 <li class="menu-category">HARDWARE</li>
                 <li><span class="icon">◈</span> Conectar ESP32</li>
@@ -71,7 +73,7 @@
                 <span class="status-indicator">Online</span>
             </div>
             <pre id="terminal">Conexão com a base estabelecida.
-Aguardando códigos de lançamento...</pre>
+Aguardando comandos...</pre>
             
             <!-- Botão Flutuante Premium -->
             <button id="btn-compile" class="fab-btn" title="Iniciar Compilação">

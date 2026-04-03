@@ -1,25 +1,29 @@
 // =========================================================
-// INJEÇÃO DE ESTILOS DINÂMICOS (ABAS, CURSOR E HIGHLIGHT DA LINGUAGEM)
+// INJEÇÃO DE ESTILOS DINÂMICOS E RAINBOW BRACKETS
 // =========================================================
 const dynamicStyles = document.createElement('style');
 dynamicStyles.innerHTML = `
-    /* Força a barrinha de digitação a aparecer com um brilho neon */
     .CodeMirror-cursor {
         border-left: 2px solid #00e5ff !important;
         box-shadow: 0 0 5px #00e5ff;
     }
     
-    /* Cores personalizadas para os Tokens da SOLinguagem (Estilo VSCode) */
-    .cm-s-nord .cm-keyword { color: #c678dd !important; font-weight: bold; text-shadow: 0 0 3px rgba(198, 120, 221, 0.4); } /* constelacao, orbita, etc */
-    .cm-s-nord .cm-def { color: #e5c07b !important; font-weight: bold; } /* estrela, planeta */
-    .cm-s-nord .cm-builtin { color: #61afef !important; } /* supernova */
-    .cm-s-nord .cm-atom { color: #d19a66 !important; font-style: italic; } /* materia, antimateria */
-    .cm-s-nord .cm-string { color: #98c379 !important; } /* Textos em aspas */
-    .cm-s-nord .cm-number { color: #d19a66 !important; } /* Números */
-    .cm-s-nord .cm-operator { color: #56b6c2 !important; } /* Operadores matemáticos */
-    .cm-s-nord .cm-comment { color: #7f848e !important; font-style: italic; } /* Comentários */
+    .cm-s-nord .cm-keyword { color: #c678dd !important; font-weight: bold; text-shadow: 0 0 3px rgba(198, 120, 221, 0.4); } 
+    .cm-s-nord .cm-def { color: #e5c07b !important; font-weight: bold; } 
+    .cm-s-nord .cm-builtin { color: #61afef !important; } 
+    .cm-s-nord .cm-atom { color: #d19a66 !important; font-style: italic; } 
+    .cm-s-nord .cm-string { color: #98c379 !important; } 
+    .cm-s-nord .cm-number { color: #d19a66 !important; } 
+    .cm-s-nord .cm-operator { color: #56b6c2 !important; } 
+    .cm-s-nord .cm-comment { color: #7f848e !important; font-style: italic; } 
+
+    /* Cores dos Colchetes (Rainbow Brackets) */
+    .cm-s-nord .cm-bracket.cm-level-1 { color: #ffd700 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.4); } /* Amarelo */
+    .cm-s-nord .cm-bracket.cm-level-2 { color: #da70d6 !important; font-weight: bold; text-shadow: 0 0 5px rgba(218, 112, 214, 0.4); } /* Rosa */
+    .cm-s-nord .cm-bracket.cm-level-3 { color: #1e90ff !important; font-weight: bold; text-shadow: 0 0 5px rgba(30, 144, 255, 0.4); } /* Azul */
+    .cm-s-nord .cm-bracket.cm-level-4 { color: #32cd32 !important; font-weight: bold; text-shadow: 0 0 5px rgba(50, 205, 50, 0.4); } /* Verde */
+    .cm-s-nord .cm-bracket.cm-level-5 { color: #ff6347 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 99, 71, 0.4); } /* Laranja */
     
-    /* Organização das abas e botão de fechar */
     .tab { 
         display: flex !important; 
         align-items: center; 
@@ -45,173 +49,144 @@ dynamicStyles.innerHTML = `
 document.head.appendChild(dynamicStyles);
 
 // =========================================================
-// DEFINIÇÃO DO MODO CUSTOMIZADO DA SOLINGUAGEM NO CODEMIRROR
+// DEFINIÇÃO DO MODO CUSTOMIZADO NO CODEMIRROR
 // =========================================================
 CodeMirror.defineMode("solinguagem", function() {
     return {
-        token: function(stream) {
-            // Ignora espaços em branco
+        startState: function() {
+            return { depth: 0 };
+        },
+        token: function(stream, state) {
             if (stream.eatSpace()) return null;
 
-            // Comentários de uma linha (//)
             if (stream.match("//")) {
                 stream.skipToEnd();
                 return "comment";
             }
 
-            // Strings (Textos entre aspas duplas)
             if (stream.match(/^"[^"]*"/)) {
                 return "string";
             }
 
-            // Números
             if (stream.match(/^[0-9]+(\.[0-9]+)?/)) {
                 return "number";
             }
 
-            // Palavras e Tokens Especiais
             const match = stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
             if (match) {
                 const word = match[0];
                 
-                // Nossos arrays de Tokens Temáticos
-                const keywords = ['constelacao', 'orbita', 'eclipse', 'pulsar', 'buraco_negro'];
-                const types = ['estrela', 'planeta'];
-                const builtins = ['supernova'];
-                const atoms = ['materia', 'antimateria'];
+                const keywords = ['tarefa', 'testa', 'falha', 'gira', 'manda', 'esp', 'web'];
+                const types = ['guarda', 'crava'];
+                const builtins = ['mostra', 'envia', 'tema']; // "tema" adicionado aqui!
+                const atoms = ['sim', 'nao'];
 
-                // Classifica o Token retornado para o CSS colorir
                 if (keywords.includes(word)) return "keyword";
                 if (types.includes(word)) return "def";
                 if (builtins.includes(word)) return "builtin";
                 if (atoms.includes(word)) return "atom";
                 
-                // Variáveis comuns que o usuário criar
                 return "variable";
             }
 
-            // Operadores Matemáticos e Lógicos
             if (stream.match(/^[+\-*/=<>!&|]+/)) {
                 return "operator";
             }
+
+            // RAINBOW BRACKETS LOGIC
+            if (stream.match("[")) {
+                state.depth++;
+                return "bracket level-" + ((state.depth - 1) % 5 + 1);
+            }
+            if (stream.match("]")) {
+                let currentLevel = state.depth;
+                if (state.depth > 0) state.depth--;
+                return "bracket level-" + ((currentLevel - 1) % 5 + 1);
+            }
             
-            // Qualquer outro caractere
             stream.next();
             return null;
         }
     };
 });
 
-// Código inicial temático focando no ESP32 e MQTT
-const initialCode = `// ==== Configurações do Universo (Rede e MQTT) ====
-planeta wifi_ssid = "Base_Estelar_WiFi";
-planeta wifi_senha = "buraco_negro_123";
+// Código inicial atualizado
+const initialCode = `// ==== Configurações Globais de Rede ====
+crava broker_mqtt = "test.mosquitto.org";
 
-planeta broker_mqtt = "test.mosquitto.org";
-planeta topico_sinal = "galaxia/esp32/comando";
+esp
+// ==== Código do Hardware ====
+crava wifi_ssid = "MinhaRede_IoT";
+crava wifi_senha = "senha_secreta_123";
+guarda pino_led = 2; // LED onboard
 
-// ==== Hardware do ESP32 ====
-estrela pino_led = 2; // LED onboard do ESP32
+tarefa iniciar[] [
+    mostra["Conectando ao WiFi..."];
+]
+esp
 
-// ==== Constelação principal de inicialização ====
-constelacao iniciar_espaco() {
-    supernova("Iniciando propulsores do ESP32...");
-    // A linguagem fará o setup do WiFi e MQTT em C++ por trás dos panos
-    supernova("Conectado ao Broker Estelar: " + broker_mqtt);
-}
+web
+// ==== Interface HTML (Mude o visual com tema!) ====
+tema["vermelho"];
 
-// ==== Reagindo aos comandos da Página Web ====
-constelacao receber_sinal(mensagem) {
-    orbita (mensagem == "LUZ") {
-        // Envia energia para o pino 2
-        pino_led = materia; // materia = true/HIGH
-        supernova("Sinal da Web recebido: Emitindo luz!");
-        
-    } eclipse {
-        // Corta a energia do pino 2
-        pino_led = antimateria; // antimateria = false/LOW
-        supernova("Sinal da Web recebido: Apagando luz.");
-    }
-}
+tarefa iniciar[] [
+    mostra["Painel sincronizado!"];
+]
+
+tarefa botao_ligar[] [
+    envia["LIGAR"];
+    mostra["Sinal enviado!"];
+]
+web
 `;
 
-// Conteúdo do Guia da Linguagem
+// Guia da Linguagem
 const guideContent = `// =========================================================
-// 📖 GUIA OFICIAL DA SOLINGUAGEM
+// 📖 GUIA OFICIAL DA LINGUAGEM (EDIÇÃO IoT)
 // =========================================================
-// Bem-vindo ao manual da linguagem de programação mais
-// brilhante do universo! Aqui você aprenderá como
-// mapear as estrelas e programar seu ESP32 com facilidade.
+// Uma linguagem limpa focada em comunicação IoT bidirecional.
+// Aqui não usamos parênteses () nem chaves {}. Tudo usa [].
 //
-// 1. ANÁLISE LÉXICA (TOKENS E PALAVRAS RESERVADAS)
-// A linguagem ignora espaços em branco e utiliza palavras
-// reservadas focadas na temática de galáxias e universo.
+// 1. AMBIENTES DE EXECUÇÃO
+//   esp ... esp : Para o microcontrolador.
+//   web ... web : Para a interface web gerada.
 //
-// ✦ Variáveis e Constantes
-//   estrela: Define uma variável mutável (ex: let/var).
-//   planeta: Define uma constante imutável (ex: const).
+// 2. VARIÁVEIS E CONSTANTES
+//   guarda: Cria uma variável que pode mudar de valor no futuro.
+//   crava: Define um valor fixo que nunca mais será alterado.
 //
-// ✦ Tipos de Dados (Átomos)
-//   materia: Representa o valor Booleano Verdadeiro (True/HIGH).
-//   antimateria: Representa o valor Booleano Falso (False/LOW).
-//   Inteiros (1, 2, 3) e Strings ("texto") são suportados nativamente.
+// 3. FLUXO E LÓGICA (Tudo com Colchetes)
+//   testa [condição] []: Avalia se algo é verdade.
+//   falha []: O que fazer se o teste for mentira.
 //
-// ✦ Estruturas de Controle
-//   orbita (condição) {}: Equivale à estrutura IF.
-//   eclipse {}: Equivale à estrutura ELSE.
-//   pulsar (condição) {}: Equivale ao laço de repetição WHILE.
+// 4. FUNÇÕES, COMANDOS E VISUAL
+//   tarefa nome[argumentos] []: Define um bloco e cria um botão na interface!
+//   mostra["texto"]; : Imprime logs no console ou monitor serial.
+//   envia["comando"]; : Dispara uma mensagem via MQTT.
+//   tema["vermelho"]; : Altera as cores da interface gerada para Vermelho e Preto!
 //
-// ✦ Funções e Rotinas
-//   constelacao nome() {}: Define um novo bloco de função.
-//   buraco_negro valor;: Retorna um valor da função (Return).
-//
-// ✦ Comandos Nativos (Built-ins)
-//   supernova("texto"): Imprime no terminal / Console da nave.
-//
-// 2. EXPRESSÕES REGULARES (REGEX NO LEXER)
-// O sistema reconhece os padrões em C++ / JS utilizando:
-// - Strings: /"[^"]*"/
-// - Números: /^[0-9]+(\\.[0-9]+)?/
-// - Identificadores: /^[a-zA-Z_][a-zA-Z0-9_]*/
-//
-// 3. EXEMPLO PRÁTICO (Piscar LED)
-//
-estrela contador = 0;
-
-constelacao piscar_led() {
-    pulsar (contador < 5) {
-        estrela_led = materia; // Liga
-        supernova("Explosão estelar " + contador);
-        contador = contador + 1;
-    }
-}
 `;
 
-// Inicializa o editor CodeMirror usando nosso novo modo customizado
 const editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
     lineNumbers: true,
     theme: "nord", 
-    mode: "solinguagem", // <-- MODO EXCLUSIVO ATIVADO AQUI!
-    indentUnit: 4
+    mode: "solinguagem",
+    indentUnit: 4,
+    matchBrackets: true 
 });
-
-// =========================================================
-// GERENCIAMENTO DE ESTADO E ABAS (LOCALSTORAGE)
-// =========================================================
 
 const STORAGE_KEY = 'sol_ide_files';
 const terminal = document.getElementById("terminal");
 
-// Tenta carregar os arquivos do LocalStorage, se não houver, carrega o padrão
 let files = JSON.parse(localStorage.getItem(STORAGE_KEY));
 if (!files || files.length === 0) {
     files = [
-        { name: "missao_alpha.sol", content: initialCode, isSaved: true }
+        { name: "main.sol", content: initialCode, isSaved: true }
     ];
 }
 
 let activeIndex = 0;
-let isSwitchingTab = false; // Previne que a troca de aba acione o evento de "change" do CodeMirror
+let isSwitchingTab = false; 
 
 const tabsContainer = document.querySelector('.file-tabs');
 tabsContainer.style.overflowX = 'auto';
@@ -219,12 +194,11 @@ tabsContainer.style.overflowY = 'hidden';
 tabsContainer.style.display = 'flex';
 tabsContainer.style.whiteSpace = 'nowrap';
 
-// Adiciona dinamicamente o botão do "Guia da Linguagem" na Sidebar do HTML
 const sidebarOptionsList = document.querySelector('.sidebar-options');
 if (sidebarOptionsList) {
     const guideItem = document.createElement('li');
     guideItem.innerHTML = '<span class="icon">📖</span> Guia da Linguagem';
-    guideItem.className = 'menu-category-action'; // Uma classe custom para hover
+    guideItem.className = 'menu-category-action'; 
     guideItem.style.color = '#00e5ff';
     guideItem.style.marginTop = '15px';
     
@@ -232,23 +206,19 @@ if (sidebarOptionsList) {
     sidebarOptionsList.appendChild(guideItem);
 }
 
-// Abre ou foca na aba do Guia da Linguagem
 function openGuideTab() {
     const guideFileName = "Guia_da_Linguagem.sol";
     const existingIndex = files.findIndex(f => f.name === guideFileName);
     
     if (existingIndex !== -1) {
-        // Se a aba já existe, apenas troca para ela
         switchTab(existingIndex);
     } else {
-        // Se não existe, cria uma nova e preenche com o conteúdo
         files.push({ name: guideFileName, content: guideContent, isSaved: true });
         switchTab(files.length - 1);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
     }
 }
 
-// Função para renderizar as abas na tela
 function renderTabs() {
     tabsContainer.innerHTML = '';
     
@@ -256,13 +226,11 @@ function renderTabs() {
         const tab = document.createElement('div');
         tab.className = `tab ${index === activeIndex ? 'active' : ''}`;
         
-        // Texto da aba
         const tabText = document.createElement('span');
         tabText.innerText = file.name + (file.isSaved ? '' : ' *');
         tabText.title = "Duplo clique para renomear";
         tabText.style.cursor = 'pointer';
         
-        // Eventos de clique apenas no texto
         tabText.onclick = (e) => {
             e.stopPropagation();
             switchTab(index);
@@ -272,11 +240,10 @@ function renderTabs() {
             renameTab(index);
         };
 
-        // Botão de fechar aba (X)
         const closeBtn = document.createElement('span');
         closeBtn.className = 'close-tab';
         closeBtn.innerHTML = '&times;';
-        closeBtn.title = "Apagar Constelação";
+        closeBtn.title = "Apagar Arquivo";
         closeBtn.onclick = (e) => {
             e.stopPropagation();
             confirmDeleteTab(index);
@@ -288,7 +255,6 @@ function renderTabs() {
     });
 }
 
-// Muda a aba atual
 function switchTab(index) {
     if (index < 0 || index >= files.length) return;
     
@@ -300,38 +266,52 @@ function switchTab(index) {
     renderTabs();
 }
 
-// Renomeia um arquivo
 function renameTab(index) {
-    let newName = prompt("Renomear constelação (arquivo):", files[index].name);
+    let newName = prompt("Renomear arquivo:", files[index].name);
     
     if (newName && newName.trim() !== "") {
         if (!newName.endsWith('.sol')) newName += '.sol';
         files[index].name = newName;
-        files[index].isSaved = false; // Marcamos como não salvo pois o nome mudou
+        files[index].isSaved = false; 
         renderTabs();
     }
 }
 
-// Salva o arquivo atual no LocalStorage
 function saveCurrentFile() {
     files[activeIndex].isSaved = true;
     files[activeIndex].content = editor.getValue();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
     renderTabs();
     
-    terminal.innerText += `\n💾 Arquivo '${files[activeIndex].name}' salvo na memória da nave!\n`;
+    terminal.innerText += `\n💾 Arquivo '${files[activeIndex].name}' salvo na IDE!\n`;
 }
 
-// Cria um novo arquivo em branco
 function createNewFile() {
-    const newName = `nova_orbita_${files.length + 1}.sol`;
+    const newName = `script_${files.length + 1}.sol`;
     files.push({ name: newName, content: '', isSaved: false });
     switchTab(files.length - 1);
 }
 
-// =========================================================
-// MODAL BONITINHO DE CONFIRMAÇÃO (ESTILO APPLE/GLASS)
-// =========================================================
+function exportCurrentFile() {
+    const currentFile = files[activeIndex];
+    const content = editor.getValue(); 
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFile.name; 
+    a.style.display = 'none';
+    
+    document.body.appendChild(a);
+    a.click(); 
+    
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    terminal.innerText += `\n📥 Projeto '${currentFile.name}' exportado para a sua máquina!\n`;
+}
 
 function showCustomConfirm(msg, onConfirm) {
     const overlay = document.createElement('div');
@@ -389,7 +369,7 @@ function showCustomConfirm(msg, onConfirm) {
     };
 
     const btnConfirm = document.createElement('button');
-    btnConfirm.innerText = 'Apagar Constelação';
+    btnConfirm.innerText = 'Apagar Arquivo';
     btnConfirm.style.padding = '12px 24px';
     btnConfirm.style.borderRadius = '12px';
     btnConfirm.style.border = 'none';
@@ -413,7 +393,6 @@ function showCustomConfirm(msg, onConfirm) {
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    // Ativa as animações de entrada
     requestAnimationFrame(() => {
         overlay.style.opacity = '1';
         box.style.transform = 'scale(1)';
@@ -423,16 +402,14 @@ function showCustomConfirm(msg, onConfirm) {
 function confirmDeleteTab(index) {
     const file = files[index];
     showCustomConfirm(
-        `⚠️ Alerta Crítico: Você está prestes a apagar a constelação '${file.name}'. Esta ação destruirá os dados permanentemente. Deseja prosseguir?`, 
+        `⚠️ Atenção: Você está prestes a apagar o arquivo '${file.name}'. Esta ação destruirá os dados permanentemente. Deseja prosseguir?`, 
         () => {
             files.splice(index, 1);
             
-            // Se fechou tudo, cria um arquivo em branco
             if (files.length === 0) {
-                files.push({ name: "nova_orbita.sol", content: "", isSaved: true });
+                files.push({ name: "script.sol", content: "", isSaved: true });
                 activeIndex = 0;
             } else if (activeIndex >= index) {
-                // Ajusta o index ativo para não quebrar a lógica
                 activeIndex = Math.max(0, activeIndex - 1);
             }
             
@@ -443,14 +420,13 @@ function confirmDeleteTab(index) {
             isSwitchingTab = false;
             
             renderTabs();
-            terminal.innerText += `\n🗑️ Arquivo apagado da memória da nave.\n`;
+            terminal.innerText += `\n🗑️ Arquivo apagado do sistema.\n`;
         }
     );
 }
 
-// Detecta mudanças no editor para colocar o asterisco
 editor.on("change", () => {
-    if (isSwitchingTab) return; // Ignora se a mudança foi só uma troca de aba
+    if (isSwitchingTab) return; 
     
     const currentFile = files[activeIndex];
     const newContent = editor.getValue();
@@ -464,7 +440,6 @@ editor.on("change", () => {
     }
 });
 
-// Atalho Ctrl+S para salvar
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
@@ -472,15 +447,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Inicialização da primeira renderização
 isSwitchingTab = true;
 editor.setValue(files[activeIndex].content);
 isSwitchingTab = false;
 renderTabs();
-
-// =========================================================
-// LÓGICA PARA RECEBER/ABRIR ARQUIVOS .SOL
-// =========================================================
 
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
@@ -493,7 +463,7 @@ fileInput.addEventListener('change', (e) => {
     if (!file) return;
 
     if (!file.name.endsWith('.sol')) {
-        terminal.innerText += `\n⚠️ Atenção: Formato não reconhecido! Apenas arquivos .sol podem ser lidos por esta IDE.\n`;
+        terminal.innerText += `\n⚠️ Atenção: Formato não reconhecido! Apenas arquivos .sol podem ser lidos.\n`;
         return;
     }
 
@@ -501,39 +471,32 @@ fileInput.addEventListener('change', (e) => {
     reader.onload = (event) => {
         const content = event.target.result;
         
-        // Adiciona como uma nova aba
         files.push({ name: file.name, content: content, isSaved: true });
         switchTab(files.length - 1);
         
-        // Salva automaticamente no LocalStorage o novo arquivo aberto
         localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
 
-        terminal.innerText += `\n✨ Constelação '${file.name}' lida e anexada às abas!\n`;
+        terminal.innerText += `\n✨ Arquivo '${file.name}' carregado no editor!\n`;
     };
     reader.readAsText(file);
     fileInput.value = ''; 
 });
 
-// Associa os botões do Menu Lateral
 const menuItems = document.querySelectorAll('.sidebar-options li');
 menuItems.forEach(item => {
-    // ABRIR
-    if (item.innerText.includes('Abrir') || item.innerText.includes('Abrir Constelação') || item.innerText.includes('Abrir Projeto')) {
+    if (item.innerText.includes('Abrir') || item.innerText.includes('Importar Projeto') || item.innerText.includes('Abrir Projeto')) {
         item.addEventListener('click', () => { fileInput.click(); });
     }
-    // NOVO
     if (item.innerText.includes('Novo Arquivo')) {
         item.addEventListener('click', createNewFile);
     }
-    // SALVAR
     if (item.innerText.includes('Salvar Projeto') || item.innerText.includes('Salvar Constelação')) {
         item.addEventListener('click', saveCurrentFile);
     }
+    if (item.innerText.includes('Exportar Projeto')) {
+        item.addEventListener('click', exportCurrentFile);
+    }
 });
-
-// =========================================================
-// LÓGICA DE COMPILAÇÃO
-// =========================================================
 
 const btnCompile = document.getElementById("btn-compile");
 
@@ -541,8 +504,8 @@ btnCompile.addEventListener("click", async () => {
     const currentFile = files[activeIndex];
     const code = editor.getValue();
     
-    terminal.innerText = "🚀 Iniciando motores de dobra...\n";
-    terminal.innerText += `📦 Empacotando a constelação atual: [ ${currentFile.name} ]\n\n`;
+    terminal.innerText = "🚀 Iniciando compilação do script...\n";
+    terminal.innerText += `📦 Processando arquivo atual: [ ${currentFile.name} ]\n\n`;
 
     try {
         const response = await fetch('/compile', {
@@ -555,15 +518,32 @@ btnCompile.addEventListener("click", async () => {
 
         const result = await response.json();
         
-        terminal.innerText += `Status da Missão: ${result.status.toUpperCase()}\n`;
+        terminal.innerText += `Status do Processo: ${result.status.toUpperCase()}\n`;
         terminal.innerText += `-------------------------------------------\n`;
         terminal.innerText += result.logs;
         
         if (result.status === "success") {
-            terminal.innerText += `\n✅ Processo finalizado! O binário gerado reflete seu arquivo original: compilado_${currentFile.name.replace('.sol', '.bin')}\n`;
+            if (result.generatedWeb) {
+                const blob = new Blob([result.generatedWeb], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `app_${currentFile.name.replace('.sol', '.html')}`; 
+                a.style.display = 'none';
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                terminal.innerText += `\n🌐 Interface Web gerada com sucesso! O download de "app_${currentFile.name.replace('.sol', '.html')}" começou.\n`;
+            } else {
+                terminal.innerText += `\n✅ Arquivo compilado, mas nenhum bloco 'web' detectado para exportação HTML.\n`;
+            }
         }
 
     } catch (error) {
-        terminal.innerText += "⚠️ Falha de comunicação com a base: " + error.message;
+        terminal.innerText += "⚠️ Falha de comunicação com o servidor: " + error.message;
     }
 });
