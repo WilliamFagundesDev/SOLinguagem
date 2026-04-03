@@ -27,7 +27,8 @@
         <!-- Sidebar Esquerda Expansível -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <span class="brand-icon">✧</span>
+                <!-- Usando o seu icone personalizado -->
+                <img src="../icon.png" class="brand-icon-img" alt="SOL">
                 <span class="brand-text">SOL IDE</span>
             </div>
             
@@ -38,7 +39,6 @@
                 <li class="active"><span class="icon">✦</span> Novo Arquivo</li>
                 <li><span class="icon">◂</span> Importar Projeto</li>
                 <li><span class="icon">▾</span> Salvar Projeto</li>
-                <!-- NOVA OPÇÃO DE EXPORTAR ADICIONADA AQUI -->
                 <li><span class="icon">⤓</span> Exportar Projeto</li>
                 
                 <li class="menu-category">HARDWARE</li>
@@ -80,6 +80,15 @@ Aguardando comandos...</pre>
                 <span class="fab-icon">⚡</span>
             </button>
         </aside>
+    </div>
+
+    <!-- Novo Menu de Contexto (Botão Direito) -->
+    <div id="tab-context-menu" class="context-menu">
+        <div class="context-menu-item" id="ctx-rename"><span class="icon">✏️</span> Renomear</div>
+        <div class="context-menu-item" id="ctx-duplicate"><span class="icon">📄</span> Duplicar</div>
+        <div class="context-menu-item" id="ctx-export"><span class="icon">📥</span> Exportar</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" id="ctx-delete"><span class="icon">🗑️</span> Apagar</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>

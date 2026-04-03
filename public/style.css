@@ -8,7 +8,12 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
-:root {
+/* === TEMAS DA IDE E SINTAXE DE CÓDIGO === */
+
+/* --------------------------------------
+   Tema 1: Dark (Padrão) 
+   -------------------------------------- */
+:root, :root[data-theme="dark"] {
     --bg-base: #06060a;
     --glass-bg: rgba(20, 20, 30, 0.4);
     --glass-border: rgba(255, 255, 255, 0.08);
@@ -18,6 +23,136 @@
     --text-muted: #8b8c91;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
 }
+/* Sintaxe Dark (Padrão injetado pelo JS, mantido por compatibilidade) */
+
+
+/* --------------------------------------
+   Tema 2: White 
+   -------------------------------------- */
+:root[data-theme="white"] {
+    --bg-base: #f4f4f8;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --accent-glow: #0055ff;
+    --accent-glow-secondary: #ff0055;
+    --text-main: #1a1a24;
+    --text-muted: #666677;
+}
+
+/* Layout Tema Claro */
+:root[data-theme="white"] .CodeMirror { color: #1a1a24 !important; text-shadow: none !important; }
+:root[data-theme="white"] .CodeMirror-gutters { background-color: rgba(0, 0, 0, 0.05) !important; border-right: 1px solid var(--glass-border) !important;}
+:root[data-theme="white"] .CodeMirror-linenumber { color: rgba(0, 0, 0, 0.4) !important; }
+:root[data-theme="white"] #terminal { color: #333 !important; font-weight: 500; text-shadow: none !important; }
+:root[data-theme="white"] .sidebar-brand .brand-text { color: #1a1a24; }
+:root[data-theme="white"] .tab.active { background: rgba(0,0,0,0.05); }
+:root[data-theme="white"] .terminal-container { background: rgba(240, 240, 245, 0.8); }
+:root[data-theme="white"] .editor-container { background: rgba(255, 255, 255, 0.5); }
+:root[data-theme="white"] .sidebar { background: rgba(240, 240, 245, 0.8); }
+
+/* Sintaxe Tema Claro */
+:root[data-theme="white"] .cm-s-nord .cm-keyword { color: #c2185b !important; text-shadow: none !important; font-weight: bold; } 
+:root[data-theme="white"] .cm-s-nord .cm-def { color: #1976d2 !important; text-shadow: none !important; font-weight: bold; } 
+:root[data-theme="white"] .cm-s-nord .cm-builtin { color: #0288d1 !important; text-shadow: none !important; font-weight: bold; }
+:root[data-theme="white"] .cm-s-nord .cm-string { color: #2e7d32 !important; text-shadow: none !important; } 
+:root[data-theme="white"] .cm-s-nord .cm-number, 
+:root[data-theme="white"] .cm-s-nord .cm-atom { color: #e65100 !important; text-shadow: none !important; font-weight: bold; } 
+:root[data-theme="white"] .cm-s-nord .cm-operator { color: #d32f2f !important; text-shadow: none !important; font-weight: bold; }
+:root[data-theme="white"] .cm-s-nord .cm-comment { color: #757575 !important; text-shadow: none !important; font-weight: 600; }
+
+/* Correção de Contraste */
+:root[data-theme="white"] .cm-s-nord .cm-variable,
+:root[data-theme="white"] .cm-s-nord .cm-variable-2,
+:root[data-theme="white"] .cm-s-nord .cm-variable-3,
+:root[data-theme="white"] .cm-s-nord .cm-property,
+:root[data-theme="white"] .cm-s-nord .cm-punctuation { 
+    color: #202028 !important; 
+    text-shadow: none !important; 
+    font-weight: 600;
+}
+
+/* Colchetes Tema Claro */
+:root[data-theme="white"] .cm-s-nord .cm-bracket.cm-level-1 { color: #d84315 !important; text-shadow: none !important; } 
+:root[data-theme="white"] .cm-s-nord .cm-bracket.cm-level-2 { color: #6a1b9a !important; text-shadow: none !important; } 
+:root[data-theme="white"] .cm-s-nord .cm-bracket.cm-level-3 { color: #1565c0 !important; text-shadow: none !important; } 
+:root[data-theme="white"] .cm-s-nord .cm-bracket.cm-level-4 { color: #2e7d32 !important; text-shadow: none !important; } 
+:root[data-theme="white"] .cm-s-nord .cm-bracket.cm-level-5 { color: #c62828 !important; text-shadow: none !important; }
+
+
+/* --------------------------------------
+   Tema 3: SOL Modern 
+   -------------------------------------- */
+:root[data-theme="sol-modern"] {
+    --bg-base: #0a1128;
+    --glass-bg: rgba(10, 17, 40, 0.6);
+    --glass-border: rgba(0, 229, 255, 0.2);
+    --accent-glow: #00e5ff;
+    --accent-glow-secondary: #ff8800;
+    --text-main: #e0fbfc;
+    --text-muted: #8d99ae;
+}
+
+/* Sintaxe Tema SOL Modern */
+:root[data-theme="sol-modern"] .cm-s-nord .cm-keyword { color: #ff8800 !important; text-shadow: 0 0 3px rgba(255, 136, 0, 0.4) !important; }
+:root[data-theme="sol-modern"] .cm-s-nord .cm-def { color: #00e5ff !important; }
+:root[data-theme="sol-modern"] .cm-s-nord .cm-builtin { color: #00bfff !important; }
+:root[data-theme="sol-modern"] .cm-s-nord .cm-string { color: #00fa9a !important; }
+:root[data-theme="sol-modern"] .cm-s-nord .cm-number, 
+:root[data-theme="sol-modern"] .cm-s-nord .cm-atom { color: #ffaa00 !important; }
+:root[data-theme="sol-modern"] .cm-s-nord .cm-comment { color: #8d99ae !important; }
+
+
+/* --------------------------------------
+   Tema 4: SOL Classic 
+   -------------------------------------- */
+:root[data-theme="sol-classic"] {
+    --bg-base: #001a33;
+    --glass-bg: rgba(0, 26, 51, 0.6);
+    --glass-border: rgba(255, 204, 0, 0.3);
+    --accent-glow: #ffcc00;
+    --accent-glow-secondary: #0088ff;
+    --text-main: #ffffff;
+    --text-muted: #b3c6ff;
+}
+
+/* Sintaxe Tema SOL Classic */
+:root[data-theme="sol-classic"] .cm-s-nord .cm-keyword { color: #ffcc00 !important; text-shadow: 0 0 5px rgba(255, 204, 0, 0.4) !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-def { color: #0088ff !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-builtin { color: #33aaff !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-string { color: #00ffcc !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-number, 
+:root[data-theme="sol-classic"] .cm-s-nord .cm-atom { color: #ffaa00 !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-comment { color: #6688aa !important; }
+:root[data-theme="sol-classic"] .cm-s-nord .cm-operator { color: #ffffff !important; }
+
+
+/* --------------------------------------
+   Tema 5: Galaxy 
+   -------------------------------------- */
+:root[data-theme="galaxy"] {
+    --bg-base: #150524;
+    --glass-bg: rgba(21, 5, 36, 0.6);
+    --glass-border: rgba(200, 100, 255, 0.2);
+    --accent-glow: #d400ff;
+    --accent-glow-secondary: #00d4ff;
+    --text-main: #f3e8ff;
+    --text-muted: #a890c2;
+}
+
+/* Sintaxe Tema Galaxy */
+:root[data-theme="galaxy"] .cm-s-nord .cm-keyword { color: #d400ff !important; text-shadow: 0 0 5px rgba(212, 0, 255, 0.4) !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-def { color: #00d4ff !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-builtin { color: #aa00ff !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-string { color: #00ffaa !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-number, 
+:root[data-theme="galaxy"] .cm-s-nord .cm-atom { color: #ff00aa !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-comment { color: #a890c2 !important; }
+:root[data-theme="galaxy"] .cm-s-nord .cm-operator { color: #f3e8ff !important; }
+
+
+/* ========================================================= */
+/* ESTRUTURA GERAL DA PÁGINA E COMPONENTES                   */
+/* ========================================================= */
 
 body {
     background-color: var(--bg-base);
@@ -25,9 +160,10 @@ body {
     height: 100vh;
     overflow: hidden;
     position: relative;
+    transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* === Ambient Background (Efeito Apple/Aurora) === */
+/* === Ambient Background === */
 .ambient-background {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -41,6 +177,7 @@ body {
     filter: blur(120px);
     opacity: 0.4;
     animation: float 20s infinite ease-in-out alternate;
+    transition: background 0.5s ease; 
 }
 .orb-1 {
     top: -10%; left: -10%;
@@ -58,7 +195,7 @@ body {
     100% { transform: translate(50px, 50px) scale(1.1); }
 }
 
-/* === Layout Principal Responsivo (CSS Grid) === */
+/* === Layout Principal Responsivo === */
 .app-container {
     display: grid;
     grid-template-columns: auto 1.6fr 1fr;
@@ -68,22 +205,22 @@ body {
     position: relative;
     z-index: 1;
     background: transparent;
-    overflow: hidden; /* Trava scroll global */
+    overflow: hidden; 
 }
 
-/* === Sidebar Esquerda Expansível (Glassmorphism) === */
+/* === Sidebar Esquerda Expansível === */
 .sidebar {
     background: var(--glass-bg);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
     border-right: 1px solid var(--glass-border);
     width: 70px;
-    transition: width 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: width 0.4s cubic-bezier(0.25, 1, 0.5, 1), background 0.4s ease, border-color 0.4s ease;
     position: relative;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    z-index: 50; /* Sempre no topo */
+    z-index: 50; 
     box-shadow: 10px 0 30px rgba(0,0,0,0.2);
 }
 
@@ -99,19 +236,23 @@ body {
     border-bottom: 1px solid var(--glass-border);
 }
 
-.brand-icon {
-    width: 70px;
-    text-align: center;
-    font-size: 24px;
-    color: var(--accent-glow);
+/* NOVO: Ícone Dinâmico via Imagem */
+.brand-icon-img {
+    width: 32px;
+    height: 32px;
+    margin: 0 19px; /* Centraliza no menu minimizado de 70px (70-32)/2 */
     flex-shrink: 0;
+    transition: transform 0.4s ease;
+}
+.sidebar:hover .brand-icon-img {
+    transform: scale(1.1);
 }
 
 .brand-text {
     font-size: 18px;
     font-weight: 600;
     letter-spacing: 1px;
-    color: #fff;
+    color: var(--text-main);
     opacity: 0;
     transition: opacity 0.3s;
 }
@@ -121,7 +262,6 @@ body {
     transition-delay: 0.1s;
 }
 
-/* Texto vertical quando minimizado */
 .sidebar-text-vertical {
     position: absolute;
     top: 50%;
@@ -132,7 +272,7 @@ body {
     font-size: 14px;
     letter-spacing: 4px;
     white-space: nowrap;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, color 0.4s ease;
 }
 
 .sidebar:hover .sidebar-text-vertical {
@@ -165,6 +305,7 @@ body {
     margin-top: 15px;
     margin-bottom: 5px;
     padding-left: 10px;
+    transition: color 0.4s ease;
 }
 
 .sidebar-options li:not(.menu-category) {
@@ -187,7 +328,7 @@ body {
 }
 
 .sidebar-options li:not(.menu-category):hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(120, 120, 120, 0.1);
 }
 
 .sidebar-options li:not(.menu-category):hover .icon {
@@ -195,7 +336,7 @@ body {
 }
 
 .sidebar-options li.active {
-    background: rgba(0, 229, 255, 0.1);
+    background: rgba(120, 120, 120, 0.1);
     color: var(--accent-glow);
 }
 
@@ -205,24 +346,24 @@ body {
 
 /* === Área Central: Editor de Código === */
 .editor-container {
-    min-width: 0; /* Correção essencial para o CodeMirror não vazar a tela */
+    min-width: 0; 
     min-height: 0;
     display: flex;
     flex-direction: column;
-    background: rgba(10, 10, 15, 0.6);
+    background: rgba(10, 10, 15, 0.4); 
     backdrop-filter: blur(10px);
     position: relative;
 }
 
-/* Estilo Apple MacOS Header */
 .editor-header {
     height: 50px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid var(--glass-border);
     display: flex;
     align-items: center;
     padding: 0 20px;
     gap: 20px;
+    transition: background 0.4s ease, border-color 0.4s ease;
 }
 
 .window-controls {
@@ -242,7 +383,7 @@ body {
 .file-tabs {
     display: flex;
     height: 100%;
-    overflow: hidden; /* Não permite tabs vazarem */
+    overflow: hidden; 
 }
 
 .tab {
@@ -254,6 +395,7 @@ body {
     color: var(--text-muted);
     border-bottom: 2px solid transparent;
     cursor: pointer;
+    transition: color 0.4s ease, border-color 0.4s ease;
 }
 .tab.active {
     color: var(--text-main);
@@ -261,7 +403,6 @@ body {
     background: rgba(255,255,255,0.03);
 }
 
-/* Customização Premium do CodeMirror */
 .CodeMirror {
     height: calc(100% - 50px) !important;
     font-family: var(--font-mono) !important;
@@ -269,11 +410,13 @@ body {
     line-height: 1.6;
     background-color: transparent !important;
     color: #f8f8f2 !important;
+    transition: color 0.4s ease;
 }
 
 .CodeMirror-gutters {
     background-color: rgba(0, 0, 0, 0.2) !important;
     border-right: 1px solid var(--glass-border) !important;
+    transition: background 0.4s ease, border-color 0.4s ease;
 }
 
 .CodeMirror-linenumber {
@@ -282,9 +425,9 @@ body {
 
 /* === Área Direita: Terminal === */
 .terminal-container {
-    min-width: 0; /* Correção essencial */
+    min-width: 0; 
     min-height: 0;
-    background: rgba(5, 5, 8, 0.7);
+    background: var(--glass-bg);
     backdrop-filter: blur(30px);
     -webkit-backdrop-filter: blur(30px);
     border-left: 1px solid var(--glass-border);
@@ -292,6 +435,7 @@ body {
     position: relative;
     display: flex;
     flex-direction: column;
+    transition: background 0.4s ease, border-color 0.4s ease;
 }
 
 .terminal-header {
@@ -327,24 +471,25 @@ body {
 }
 
 #terminal {
-    color: #e0e0e0;
+    color: var(--text-main);
     font-family: var(--font-mono);
     white-space: pre-wrap;
     flex: 1;
     overflow-y: auto;
     font-size: 14px;
     line-height: 1.5;
+    transition: color 0.4s ease;
 }
 
-/* === Botão Flutuante (FAB) Premium === */
+/* === Botão Flutuante (FAB) === */
 .fab-btn {
     position: absolute;
     bottom: 35px;
     right: 35px;
     width: 65px;
     height: 65px;
-    border-radius: 22px; /* iOS Squircle Look */
-    background: linear-gradient(135deg, #00e5ff, #0055ff);
+    border-radius: 22px; 
+    background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary));
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
     font-size: 26px;
@@ -353,7 +498,7 @@ body {
     align-items: center;
     cursor: pointer;
     box-shadow: 
-        0 12px 30px rgba(0, 119, 255, 0.3),
+        0 12px 30px rgba(0, 0, 0, 0.3),
         inset 0 2px 0 rgba(255, 255, 255, 0.4);
     transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     z-index: 100;
@@ -362,13 +507,58 @@ body {
 .fab-btn:hover {
     transform: translateY(-5px) scale(1.03);
     box-shadow: 
-        0 15px 40px rgba(0, 229, 255, 0.5),
+        0 15px 40px rgba(0, 0, 0, 0.4),
         inset 0 2px 0 rgba(255, 255, 255, 0.5);
+    filter: brightness(1.2);
 }
 
 .fab-btn:active {
     transform: translateY(2px) scale(0.97);
-    box-shadow: 0 5px 15px rgba(0, 119, 255, 0.3);
+}
+
+/* === NOVO: Menu de Contexto (Botão Direito) === */
+.context-menu {
+    position: fixed;
+    background: var(--glass-bg);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px 0;
+    min-width: 180px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+    z-index: 100000;
+    display: none;
+    flex-direction: column;
+}
+
+.context-menu-item {
+    padding: 10px 20px;
+    font-size: 13px;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.context-menu-item:hover {
+    background: rgba(150, 150, 150, 0.15);
+}
+
+.context-menu-item.danger {
+    color: #ff5f56;
+}
+
+.context-menu-item.danger:hover {
+    background: rgba(255, 95, 86, 0.15);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 6px 0;
 }
 
 /* Scrollbar Customizada */
@@ -380,64 +570,42 @@ body {
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(120, 120, 120, 0.3);
     border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(120, 120, 120, 0.5);
 }
 
 /* =========================================================
    MEDIA QUERIES - RESPONSIVIDADE E ADAPTAÇÃO
    ========================================================= */
 
-/* Tablets e Janelas Menores (até 1200px) */
 @media (max-width: 1200px) {
     .app-container {
-        /* Muda a grade para colocar o Terminal embaixo do Editor */
         grid-template-columns: auto 1fr;
         grid-template-rows: 65vh 35vh;
     }
-    .sidebar {
-        grid-row: 1 / 3;
-        grid-column: 1;
-    }
-    .editor-container {
-        grid-row: 1;
-        grid-column: 2;
-    }
+    .sidebar { grid-row: 1 / 3; grid-column: 1; }
+    .editor-container { grid-row: 1; grid-column: 2; }
     .terminal-container {
-        grid-row: 2;
-        grid-column: 2;
-        border-left: none; /* Tira borda esquerda */
-        border-top: 1px solid var(--glass-border); /* Coloca borda no topo */
+        grid-row: 2; grid-column: 2;
+        border-left: none; 
+        border-top: 1px solid var(--glass-border);
     }
     .fab-btn {
-        bottom: 20px;
-        right: 20px;
-        width: 55px;
-        height: 55px;
+        bottom: 20px; right: 20px;
+        width: 55px; height: 55px;
     }
 }
 
-/* Celulares ou Divisão de Tela Extrema (até 768px) */
 @media (max-width: 768px) {
-    .app-container {
-        display: flex;
-        flex-direction: column;
-    }
-    .sidebar {
-        position: absolute;
-        height: 100vh;
-    }
+    .app-container { display: flex; flex-direction: column; }
+    .sidebar { position: absolute; height: 100vh; }
     .editor-container {
-        flex: 1;
-        margin-left: 70px; /* Deixa espaço para a barra recolhida */
+        flex: 1; margin-left: 70px;
     }
     .terminal-container {
-        flex: 0.8;
-        margin-left: 70px;
-        border-left: none;
-        border-top: 1px solid var(--glass-border);
+        flex: 0.8; margin-left: 70px; border-left: none; border-top: 1px solid var(--glass-border);
     }
 }

@@ -200,7 +200,6 @@ function codeGenerator(node) {
             if (node.alternate) ifCode += ` else {\n  ${codeGenerator(node.alternate)}\n}`;
             return ifCode;
         case 'CallExpression':
-            // Separa os argumentos por vírgula corretamente
             let argsArr = [];
             let currentArg = [];
             node.arguments.forEach(t => {
@@ -213,7 +212,6 @@ function codeGenerator(node) {
             });
             if (currentArg.length > 0) argsArr.push(tokensToJS(currentArg));
 
-            // ==== NOVOS COMANDOS DE CRIAÇÃO DE UI NATIVOS DA SOLINGUAGEM ====
             if (node.name === 'caixa') {
                 return `(function(){ let el = document.createElement('div'); el.id = ${argsArr[0]}; document.body.appendChild(el); })();`;
             }
@@ -224,9 +222,34 @@ function codeGenerator(node) {
                 let funcName = argsArr[2] ? argsArr[2].replace(/"/g, '') : '';
                 return `(function(){ let el = document.createElement('button'); el.id = ${argsArr[0]}; el.innerText = ${argsArr[1]}; el.onclick = function() { if(typeof window['${funcName}'] === 'function') window['${funcName}'](); }; document.body.appendChild(el); })();`;
             }
+            
+            // O NOVO COMANDO "ESTILO" COM ATALHOS INTELIGENTES
             if (node.name === 'estilo') {
-                return `document.getElementById(${argsArr[0]}).style.cssText += ${argsArr[1]};`;
+                let rawStyle = argsArr[1].replace(/^"|"$/g, ''); // Tira as aspas para poder avaliar
+                let lowerStyle = rawStyle.toLowerCase();
+                let finalStyleCSS = argsArr[1]; // Mantém o original por padrão
+                
+                // DICIONÁRIO DE ESTILOS DA SOLINGUAGEM
+                const ESTILOS_PRONTOS = {
+                    "moderno": `"background:#ffffff; color:#333; border:none; border-radius:12px; padding:15px; font-size:22px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.1); cursor:pointer;"`,
+                    "futurista": `"background:#0a0a1a; color:#00e5ff; border:1px solid #00e5ff; border-radius:8px; padding:15px; font-size:22px; font-weight:bold; box-shadow:0 0 10px rgba(0,229,255,0.3); cursor:pointer;"`,
+                    "primitivo": `"background:#8b5a2b; color:#ffe4c4; border:4px solid #5c4033; border-radius:0px; padding:15px; font-size:22px; font-weight:bold; cursor:pointer;"`,
+                    "arcaico": `"background:#000000; color:#33ff00; border:2px solid #33ff00; border-radius:0px; padding:15px; font-size:22px; font-family:monospace; cursor:pointer;"`,
+                    "windowsxp": `"background:linear-gradient(to bottom, #ece9d8, #d4d0c8); color:#000; border:1px solid #003c74; border-radius:3px; padding:15px; font-size:22px; font-family:Tahoma, sans-serif; box-shadow:inset 1px 1px #fff, inset -1px -1px #808080; cursor:pointer;"`,
+                    // Helpers de Layout Base
+                    "chassi": `"width:320px; margin:40px auto; background:#1a0000; padding:25px; border-radius:15px; border:2px solid #ff0044; box-shadow:0 0 40px rgba(255,0,68,0.4); font-family:sans-serif;"`,
+                    "visor": `"background:#000; color:#ff0044; font-size:40px; padding:15px; text-align:right; border-radius:8px; margin-bottom:20px; border:1px solid #ff0044; font-family:monospace; height:50px; overflow:hidden;"`,
+                    "grid": `"display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;"`
+                };
+
+                // Se o que o usuário escreveu bater com um estilo pronto, ele substitui!
+                if (ESTILOS_PRONTOS[lowerStyle]) {
+                    finalStyleCSS = ESTILOS_PRONTOS[lowerStyle];
+                }
+
+                return `document.getElementById(${argsArr[0]}).style.cssText += ${finalStyleCSS};`;
             }
+            
             if (node.name === 'atualiza') {
                 return `document.getElementById(${argsArr[0]}).innerText = ${argsArr[1]};`;
             }
@@ -236,10 +259,8 @@ function codeGenerator(node) {
             if (node.name === 'limpa') {
                 return `document.body.innerHTML = '';`;
             }
-
-            // Comandos antigos
             if (node.name === 'tema') {
-                return `(function(){ let t = ${argsArr[0]}; let s = document.createElement('style'); if(t === "vermelho") { document.body.style.backgroundColor = "#0d0000"; document.body.style.color = "#ff4444"; s.innerHTML = "button { background: linear-gradient(135deg, #cc0000, #660000) !important; color: white !important; border: 1px solid #ff3333 !important; box-shadow: 0 4px 15px rgba(255,0,0,0.4); } .terminal { border: 1px solid #ff3333 !important; color: #ff6666 !important; background-color: #1a0000 !important; } h1, p { color: #ff5555; }"; } document.head.appendChild(s); })();`;
+                return `(function(){ let t = ${argsArr[0]}; let s = document.createElement('style'); if(t === "vermelho") { document.body.style.backgroundColor = "#0d0000"; document.body.style.color = "#ff4444"; s.innerHTML = "button { transition: 0.2s; } button:hover { filter: brightness(1.2); transform: scale(1.05); } .terminal { border: 1px solid #ff3333 !important; color: #ff6666 !important; background-color: #1a0000 !important; }"; } document.head.appendChild(s); })();`;
             }
             if (node.name === 'mostra') return `console.log(${argsArr.join(', ')});`;
             if (node.name === 'envia') return `console.log("📡 [MQTT Enviando]: " + ${argsArr.join(', ')});`;
@@ -292,7 +313,6 @@ function compileWeb(code) {
             oldLog.apply(console, arguments);
         };
 
-        // Cria botões automáticos apenas se a tela não for limpa
         const generateDefaultButtons = () => {
             if(!document.getElementById('action-buttons')) return;
             const actionsDiv = document.getElementById('action-buttons');
@@ -308,16 +328,15 @@ function compileWeb(code) {
             }
         };
 
-        // === CÓDIGO SOL (WEB) APLICADO AQUI ===
+        // === CÓDIGO SOL (WEB) ===
         ${webJS}
 
-        // Inicia a aplicação
         if (typeof iniciar === "function") iniciar();
         generateDefaultButtons();
     </script>
 </body>
 </html>`;
-            executionLogs += "✓ Motor WEB: HTML e DOM configurados com sucesso.\n";
+            executionLogs += "✓ Motor WEB: HTML e DOM configurados usando Estilos Dinâmicos.\n";
         } else {
             executionLogs += "✓ Motor WEB: Nenhum bloco 'web' detectado.\n";
         }
