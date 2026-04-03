@@ -1,6 +1,7 @@
 const KEYWORDS = [
     'tarefa', 'guarda', 'crava', 'testa', 
     'falha', 'gira', 'mostra', 'manda', 'envia', 'tema',
+    'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
     'sim', 'nao', 'esp', 'web'
 ];
 
@@ -120,7 +121,9 @@ function syntaxAnalyzer(tokens) {
             }
             return { type: 'IfStatement', condition, consequent, alternate };
         }
-        if (token.type === 'keyword' && (token.value === 'mostra' || token.value === 'envia' || token.value === 'tema')) {
+        
+        const uiCommands = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca'];
+        if (token.type === 'keyword' && uiCommands.includes(token.value)) {
             let funcName = token.value; current++; 
             if (tokens[current++].value !== '[') throw new Error(`Erro Sintático (WEB): Esperado '[' após '${funcName}'`);
             let args = [];
@@ -130,6 +133,7 @@ function syntaxAnalyzer(tokens) {
             current++; 
             return { type: 'CallExpression', name: funcName, arguments: args };
         }
+        
         if (token.type === 'identifier' && current + 1 < tokens.length && tokens[current + 1].value === '=') {
             let nameToken = token; current += 2; 
             let valueNodes = [];
@@ -155,7 +159,7 @@ function semanticAnalyzer(ast) {
         if (Array.isArray(node)) { node.forEach(traverse); return; }
         switch (node.type) {
             case 'Program': node.body.forEach(traverse); break;
-            case 'EnvironmentBlock': if(node.environment === 'web') logs.push(`\n🌐 [WEB] Analisando ambiente...`); node.body.forEach(traverse); break;
+            case 'EnvironmentBlock': if(node.environment === 'web') logs.push(`\n🌐 [WEB] Analisando ambiente visual...`); node.body.forEach(traverse); break;
             case 'FunctionDeclaration':
                 if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (WEB): A tarefa '${node.name}' já existe!`);
                 symbolUniverse.add(node.name); logs.push(`⚙️ [WEB] Tarefa registrada -> ${node.name}`); traverse(node.body); break;
@@ -196,13 +200,51 @@ function codeGenerator(node) {
             if (node.alternate) ifCode += ` else {\n  ${codeGenerator(node.alternate)}\n}`;
             return ifCode;
         case 'CallExpression':
-            let argsJS = tokensToJS(node.arguments);
-            if (node.name === 'tema') {
-                return `(function(){ let t = ${argsJS}; let s = document.createElement('style'); if(t === "vermelho") { document.body.style.backgroundColor = "#0d0000"; document.body.style.color = "#ff4444"; s.innerHTML = "button { background: linear-gradient(135deg, #cc0000, #660000) !important; color: white !important; border: 1px solid #ff3333 !important; box-shadow: 0 4px 15px rgba(255,0,0,0.4); } .terminal { border: 1px solid #ff3333 !important; color: #ff6666 !important; background-color: #1a0000 !important; } h1, p { color: #ff5555; }"; } document.head.appendChild(s); })();`;
+            // Separa os argumentos por vírgula corretamente
+            let argsArr = [];
+            let currentArg = [];
+            node.arguments.forEach(t => {
+                if (t.value === ',') {
+                    argsArr.push(tokensToJS(currentArg));
+                    currentArg = [];
+                } else {
+                    currentArg.push(t);
+                }
+            });
+            if (currentArg.length > 0) argsArr.push(tokensToJS(currentArg));
+
+            // ==== NOVOS COMANDOS DE CRIAÇÃO DE UI NATIVOS DA SOLINGUAGEM ====
+            if (node.name === 'caixa') {
+                return `(function(){ let el = document.createElement('div'); el.id = ${argsArr[0]}; document.body.appendChild(el); })();`;
             }
-            if (node.name === 'mostra') return `console.log(${argsJS});`;
-            if (node.name === 'envia') return `console.log("📡 [MQTT Enviando]: " + ${argsJS});`;
-            return `${node.name}(${argsJS});`;
+            if (node.name === 'texto') {
+                return `(function(){ let el = document.createElement('div'); el.id = ${argsArr[0]}; el.innerText = ${argsArr[1]}; document.body.appendChild(el); })();`;
+            }
+            if (node.name === 'botao') {
+                let funcName = argsArr[2] ? argsArr[2].replace(/"/g, '') : '';
+                return `(function(){ let el = document.createElement('button'); el.id = ${argsArr[0]}; el.innerText = ${argsArr[1]}; el.onclick = function() { if(typeof window['${funcName}'] === 'function') window['${funcName}'](); }; document.body.appendChild(el); })();`;
+            }
+            if (node.name === 'estilo') {
+                return `document.getElementById(${argsArr[0]}).style.cssText += ${argsArr[1]};`;
+            }
+            if (node.name === 'atualiza') {
+                return `document.getElementById(${argsArr[0]}).innerText = ${argsArr[1]};`;
+            }
+            if (node.name === 'coloca') {
+                return `document.getElementById(${argsArr[1]}).appendChild(document.getElementById(${argsArr[0]}));`;
+            }
+            if (node.name === 'limpa') {
+                return `document.body.innerHTML = '';`;
+            }
+
+            // Comandos antigos
+            if (node.name === 'tema') {
+                return `(function(){ let t = ${argsArr[0]}; let s = document.createElement('style'); if(t === "vermelho") { document.body.style.backgroundColor = "#0d0000"; document.body.style.color = "#ff4444"; s.innerHTML = "button { background: linear-gradient(135deg, #cc0000, #660000) !important; color: white !important; border: 1px solid #ff3333 !important; box-shadow: 0 4px 15px rgba(255,0,0,0.4); } .terminal { border: 1px solid #ff3333 !important; color: #ff6666 !important; background-color: #1a0000 !important; } h1, p { color: #ff5555; }"; } document.head.appendChild(s); })();`;
+            }
+            if (node.name === 'mostra') return `console.log(${argsArr.join(', ')});`;
+            if (node.name === 'envia') return `console.log("📡 [MQTT Enviando]: " + ${argsArr.join(', ')});`;
+            
+            return `${node.name}(${argsArr.join(', ')});`;
         default: return '';
     }
 }
@@ -233,39 +275,49 @@ function compileWeb(code) {
     </style>
 </head>
 <body>
-    <h1>Painel de Controle 🚀</h1>
-    <p>Abaixo estão os botões interativos gerados através do código SOL.</p>
-    <div id="action-buttons"></div>
-    <div class="terminal" id="logs"><div>> Sistema Iniciado. Aguardando comandos...</div></div>
+    <div id="default-ui">
+        <h1>Painel de Controle 🚀</h1>
+        <p>Abaixo estão os botões interativos gerados através do código SOL.</p>
+        <div id="action-buttons"></div>
+        <div class="terminal" id="logs"><div>> Sistema Iniciado. Aguardando comandos...</div></div>
+    </div>
     <script>
         const terminalUI = document.getElementById('logs');
         const oldLog = console.log;
         console.log = function(message) {
-            terminalUI.innerHTML += '<div>> ' + message + '</div>';
-            terminalUI.scrollTop = terminalUI.scrollHeight;
+            if(document.body.contains(terminalUI)) {
+                terminalUI.innerHTML += '<div>> ' + message + '</div>';
+                terminalUI.scrollTop = terminalUI.scrollHeight;
+            }
             oldLog.apply(console, arguments);
         };
 
-        // === CÓDIGO SOL (WEB) ===
-        ${webJS}
-
-        if (typeof iniciar === "function") iniciar();
-
-        const actionsDiv = document.getElementById('action-buttons');
-        for (let prop in window) {
-            if (typeof window[prop] === 'function' && prop !== 'iniciar' && prop !== 'console') {
-                if(window[prop].toString().indexOf('[native code]') === -1) {
-                    let btn = document.createElement('button');
-                    btn.innerText = prop.replace(/_/g, ' ');
-                    btn.onclick = window[prop];
-                    actionsDiv.appendChild(btn);
+        // Cria botões automáticos apenas se a tela não for limpa
+        const generateDefaultButtons = () => {
+            if(!document.getElementById('action-buttons')) return;
+            const actionsDiv = document.getElementById('action-buttons');
+            for (let prop in window) {
+                if (typeof window[prop] === 'function' && prop !== 'iniciar' && prop !== 'console' && prop !== 'generateDefaultButtons') {
+                    if(window[prop].toString().indexOf('[native code]') === -1) {
+                        let btn = document.createElement('button');
+                        btn.innerText = prop.replace(/_/g, ' ');
+                        btn.onclick = window[prop];
+                        actionsDiv.appendChild(btn);
+                    }
                 }
             }
-        }
+        };
+
+        // === CÓDIGO SOL (WEB) APLICADO AQUI ===
+        ${webJS}
+
+        // Inicia a aplicação
+        if (typeof iniciar === "function") iniciar();
+        generateDefaultButtons();
     </script>
 </body>
 </html>`;
-            executionLogs += "✓ Motor WEB: HTML e JS gerados com sucesso.\n";
+            executionLogs += "✓ Motor WEB: HTML e DOM configurados com sucesso.\n";
         } else {
             executionLogs += "✓ Motor WEB: Nenhum bloco 'web' detectado.\n";
         }

@@ -10,7 +10,7 @@ dynamicStyles.innerHTML = `
     
     .cm-s-nord .cm-keyword { color: #c678dd !important; font-weight: bold; text-shadow: 0 0 3px rgba(198, 120, 221, 0.4); } 
     .cm-s-nord .cm-def { color: #e5c07b !important; font-weight: bold; } 
-    .cm-s-nord .cm-builtin { color: #61afef !important; } 
+    .cm-s-nord .cm-builtin { color: #61afef !important; font-weight: bold;} 
     .cm-s-nord .cm-atom { color: #d19a66 !important; font-style: italic; } 
     .cm-s-nord .cm-string { color: #98c379 !important; } 
     .cm-s-nord .cm-number { color: #d19a66 !important; } 
@@ -18,11 +18,11 @@ dynamicStyles.innerHTML = `
     .cm-s-nord .cm-comment { color: #7f848e !important; font-style: italic; } 
 
     /* Cores dos Colchetes (Rainbow Brackets) */
-    .cm-s-nord .cm-bracket.cm-level-1 { color: #ffd700 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.4); } /* Amarelo */
-    .cm-s-nord .cm-bracket.cm-level-2 { color: #da70d6 !important; font-weight: bold; text-shadow: 0 0 5px rgba(218, 112, 214, 0.4); } /* Rosa */
-    .cm-s-nord .cm-bracket.cm-level-3 { color: #1e90ff !important; font-weight: bold; text-shadow: 0 0 5px rgba(30, 144, 255, 0.4); } /* Azul */
-    .cm-s-nord .cm-bracket.cm-level-4 { color: #32cd32 !important; font-weight: bold; text-shadow: 0 0 5px rgba(50, 205, 50, 0.4); } /* Verde */
-    .cm-s-nord .cm-bracket.cm-level-5 { color: #ff6347 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 99, 71, 0.4); } /* Laranja */
+    .cm-s-nord .cm-bracket.cm-level-1 { color: #ffd700 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.4); } 
+    .cm-s-nord .cm-bracket.cm-level-2 { color: #da70d6 !important; font-weight: bold; text-shadow: 0 0 5px rgba(218, 112, 214, 0.4); } 
+    .cm-s-nord .cm-bracket.cm-level-3 { color: #1e90ff !important; font-weight: bold; text-shadow: 0 0 5px rgba(30, 144, 255, 0.4); } 
+    .cm-s-nord .cm-bracket.cm-level-4 { color: #32cd32 !important; font-weight: bold; text-shadow: 0 0 5px rgba(50, 205, 50, 0.4); } 
+    .cm-s-nord .cm-bracket.cm-level-5 { color: #ff6347 !important; font-weight: bold; text-shadow: 0 0 5px rgba(255, 99, 71, 0.4); } 
     
     .tab { 
         display: flex !important; 
@@ -78,7 +78,8 @@ CodeMirror.defineMode("solinguagem", function() {
                 
                 const keywords = ['tarefa', 'testa', 'falha', 'gira', 'manda', 'esp', 'web'];
                 const types = ['guarda', 'crava'];
-                const builtins = ['mostra', 'envia', 'tema']; // "tema" adicionado aqui!
+                // Todos os novos construtores DOM e UI
+                const builtins = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca']; 
                 const atoms = ['sim', 'nao'];
 
                 if (keywords.includes(word)) return "keyword";
@@ -93,7 +94,6 @@ CodeMirror.defineMode("solinguagem", function() {
                 return "operator";
             }
 
-            // RAINBOW BRACKETS LOGIC
             if (stream.match("[")) {
                 state.depth++;
                 return "bracket level-" + ((state.depth - 1) % 5 + 1);
@@ -110,60 +110,87 @@ CodeMirror.defineMode("solinguagem", function() {
     };
 });
 
-// Código inicial atualizado
-const initialCode = `// ==== Configurações Globais de Rede ====
-crava broker_mqtt = "test.mosquitto.org";
-
-esp
-// ==== Código do Hardware ====
-crava wifi_ssid = "MinhaRede_IoT";
-crava wifi_senha = "senha_secreta_123";
-guarda pino_led = 2; // LED onboard
+// Código inicial atualizado com os construtores DOM
+const initialCode = `web
+// ==== Calculadora Customizada em SOLinguagem ====
+guarda valor = 0;
 
 tarefa iniciar[] [
-    mostra["Conectando ao WiFi..."];
+    // 1. Limpa o visual padrão gerado pela engine
+    limpa[];
+    tema["vermelho"];
+    
+    // 2. Cria a caixa principal
+    caixa["calculadora"];
+    estilo["calculadora", "width: 320px; margin: 60px auto; background: #0d0000; padding: 25px; border: 2px solid #cc0000; border-radius: 15px; box-shadow: 0 0 30px rgba(255,0,0,0.5); font-family: sans-serif;"];
+    
+    // 3. Cria o visor
+    texto["visor", "0"];
+    estilo["visor", "display: block; font-size: 50px; color: #ff3333; background: #000; padding: 15px; text-align: right; margin-bottom: 25px; border: 1px solid #cc0000; border-radius: 8px; font-family: monospace;"];
+    coloca["visor", "calculadora"];
+    
+    // 4. Cria a área dos botões (Grid)
+    caixa["teclas"];
+    estilo["teclas", "display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"];
+    coloca["teclas", "calculadora"];
+    
+    // 5. Instancia os botões passando os IDs, Textos e a Tarefa Alvo!
+    botao["btn_soma", "+ 10", "soma_dez"];
+    estilo["btn_soma", "font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: none; background: #cc0000; color: white;"];
+    coloca["btn_soma", "teclas"];
+    
+    botao["btn_subtrai", "- 5", "subtrai_cinco"];
+    estilo["btn_subtrai", "font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: none; background: #cc0000; color: white;"];
+    coloca["btn_subtrai", "teclas"];
+    
+    botao["btn_zerar", "Zerar Memória", "zerar_visor"];
+    estilo["btn_zerar", "grid-column: span 2; font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: 1px solid #ff0000; background: linear-gradient(135deg, #880000, #330000); color: white;"];
+    coloca["btn_zerar", "teclas"];
 ]
-esp
 
-web
-// ==== Interface HTML (Mude o visual com tema!) ====
-tema["vermelho"];
+// ==== Lógica e Regras de Negócio ====
 
-tarefa iniciar[] [
-    mostra["Painel sincronizado!"];
+tarefa soma_dez[] [
+    valor = valor + 10;
+    atualiza["visor", valor];
 ]
 
-tarefa botao_ligar[] [
-    envia["LIGAR"];
-    mostra["Sinal enviado!"];
+tarefa subtrai_cinco[] [
+    valor = valor - 5;
+    atualiza["visor", valor];
+]
+
+tarefa zerar_visor[] [
+    valor = 0;
+    atualiza["visor", valor];
 ]
 web
 `;
 
-// Guia da Linguagem
 const guideContent = `// =========================================================
-// 📖 GUIA OFICIAL DA LINGUAGEM (EDIÇÃO IoT)
+// 📖 GUIA DE UI BUILDER EM SOLINGUAGEM
 // =========================================================
-// Uma linguagem limpa focada em comunicação IoT bidirecional.
-// Aqui não usamos parênteses () nem chaves {}. Tudo usa [].
+// A linguagem agora possui construtores DOM nativos para
+// você criar sites completos do absoluto zero!
 //
-// 1. AMBIENTES DE EXECUÇÃO
-//   esp ... esp : Para o microcontrolador.
-//   web ... web : Para a interface web gerada.
+// 1. MANIPULANDO A TELA
+//   limpa[]; : Remove todo o HTML/Painel padrão gerado.
 //
-// 2. VARIÁVEIS E CONSTANTES
-//   guarda: Cria uma variável que pode mudar de valor no futuro.
-//   crava: Define um valor fixo que nunca mais será alterado.
+// 2. CRIANDO ELEMENTOS
+//   caixa["id"]; : Cria um container (DIV).
+//   texto["id", "Meu texto"]; : Cria um elemento de texto.
+//   botao["id", "Texto do botão", "nome_da_tarefa"]; : 
+//       -> Cria um botão que executa uma tarefa ao clicar!
 //
-// 3. FLUXO E LÓGICA (Tudo com Colchetes)
-//   testa [condição] []: Avalia se algo é verdade.
-//   falha []: O que fazer se o teste for mentira.
+// 3. ESTILIZANDO E ORGANIZANDO
+//   estilo["id_do_elemento", "regras_em_css"]; :
+//       -> Ex: estilo["minha_caixa", "color: rgb(255,0,0);"];
+//   coloca["id_do_filho", "id_do_pai"]; :
+//       -> Joga um elemento para dentro do outro na tela.
 //
-// 4. FUNÇÕES, COMANDOS E VISUAL
-//   tarefa nome[argumentos] []: Define um bloco e cria um botão na interface!
-//   mostra["texto"]; : Imprime logs no console ou monitor serial.
-//   envia["comando"]; : Dispara uma mensagem via MQTT.
-//   tema["vermelho"]; : Altera as cores da interface gerada para Vermelho e Preto!
+// 4. ATUALIZANDO DADOS EM TEMPO REAL
+//   atualiza["id", valor_novo]; : 
+//       -> Perfeito para mudar números de visores/textos!
 //
 `;
 
@@ -181,7 +208,7 @@ const terminal = document.getElementById("terminal");
 let files = JSON.parse(localStorage.getItem(STORAGE_KEY));
 if (!files || files.length === 0) {
     files = [
-        { name: "main.sol", content: initialCode, isSaved: true }
+        { name: "calculadora.sol", content: initialCode, isSaved: true }
     ];
 }
 

@@ -1,11 +1,11 @@
 const KEYWORDS = [
     'tarefa', 'guarda', 'crava', 'testa', 
     'falha', 'gira', 'mostra', 'manda', 'envia', 'tema',
+    'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
     'sim', 'nao', 'esp', 'web'
 ];
 
-// O motor Lexico e Sintático é o mesmo por enquanto,
-// a principal diferença será na Análise Semântica e Geração de Código!
+// O motor Lexico e Sintático se mantém idêntico para evitar erros
 function lexicalAnalyzer(code) {
     let current = 0;
     let tokens = [];
@@ -122,7 +122,9 @@ function syntaxAnalyzer(tokens) {
             }
             return { type: 'IfStatement', condition, consequent, alternate };
         }
-        if (token.type === 'keyword' && (token.value === 'mostra' || token.value === 'envia' || token.value === 'tema')) {
+        
+        const uiCommands = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca'];
+        if (token.type === 'keyword' && uiCommands.includes(token.value)) {
             let funcName = token.value; current++; 
             if (tokens[current++].value !== '[') throw new Error(`Erro Sintático (ESP): Esperado '[' após '${funcName}'`);
             let args = [];
@@ -132,6 +134,7 @@ function syntaxAnalyzer(tokens) {
             current++; 
             return { type: 'CallExpression', name: funcName, arguments: args };
         }
+        
         if (token.type === 'identifier' && current + 1 < tokens.length && tokens[current + 1].value === '=') {
             let nameToken = token; current += 2; 
             let valueNodes = [];
@@ -173,10 +176,8 @@ function semanticAnalyzer(ast) {
     return logs.join('\n');
 }
 
-// === NOVO: GERADOR C++ (Preparando para o futuro) ===
+// GERADOR C++
 function codeGeneratorCpp(node) {
-    // Por enquanto, isso é apenas um rascunho de como as tarefas SOL
-    // vão virar código C++ (Arduino/ESP) na próxima fase do seu projeto!
     if (Array.isArray(node)) return node.map(codeGeneratorCpp).join('\n');
     
     switch (node.type) {
@@ -190,6 +191,10 @@ function codeGeneratorCpp(node) {
         case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const int' : 'int'} ${node.name} = ${node.value.map(n => n.value).join('')};`;
         case 'FunctionDeclaration': return `void ${node.name}(${node.params.map(p => `String ${p}`).join(', ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
         case 'CallExpression': 
+            // O motor ESP ignora silenciosamente os comandos de UI exclusivos da Web!
+            if (['caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca', 'tema'].includes(node.name)) {
+                return `// Comando visual ignorado pelo ESP32: ${node.name}`;
+            }
             if(node.name === 'mostra') return `Serial.println(${node.arguments.map(n => '"' + n.value + '"').join(' ')});`;
             return `// Chamada de função: ${node.name}`;
         default: return '';
@@ -209,7 +214,7 @@ function compileEsp(code) {
 
         if (hasEspBlock) {
             generatedCpp = cppCode;
-            executionLogs += "✓ Motor ESP32: Esqueleto C++ (Arduino) preparado para a placa.\n";
+            executionLogs += "✓ Motor ESP32: Esqueleto C++ preparado. (Ignorando blocos Web).\n";
         } else {
             executionLogs += "✓ Motor ESP32: Nenhum bloco 'esp' detectado para gerar C++.\n";
         }
