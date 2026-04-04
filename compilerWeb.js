@@ -1,7 +1,12 @@
+// Importando os nossos módulos de Sintaxe e Semântica!
+const { syntaxAnalyzer } = require('./sintaxe');
+const { semanticAnalyzer } = require('./semantica');
+
 const KEYWORDS = [
     'tarefa', 'guarda', 'crava', 'testa', 
     'falha', 'gira', 'mostra', 'manda', 'envia', 'tema',
     'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
+    'cor', 'tamanho', 'funcao', 
     'sim', 'nao', 'esp', 'web'
 ];
 
@@ -9,8 +14,19 @@ function lexicalAnalyzer(code) {
     let current = 0;
     let tokens = [];
 
+    function getPos() {
+        let line = 1, col = 1;
+        for (let i = 0; i < current; i++) {
+            if (code[i] === '\n') { line++; col = 1; }
+            else { col++; }
+        }
+        return { line, col };
+    }
+
     while (current < code.length) {
         let char = code[current];
+        let pos = getPos(); 
+
         if (/\s/.test(char)) { current++; continue; }
         if (char === '/' && code[current + 1] === '/') {
             while (current < code.length && code[current] !== '\n') current++;
@@ -18,164 +34,45 @@ function lexicalAnalyzer(code) {
         }
         if (/[\[\];=><!+\-*/,]/.test(char)) {
             if ((char === '=' || char === '>' || char === '<' || char === '!') && code[current + 1] === '=') {
-                tokens.push({ type: 'operator', value: char + '=' });
+                tokens.push({ type: 'operator', value: char + '=', line: pos.line, column: pos.col });
                 current += 2;
                 continue;
             }
             let type = 'punctuation';
             if (/[+\-*/=><!]/.test(char)) type = 'operator';
-            tokens.push({ type, value: char });
+            tokens.push({ type, value: char, line: pos.line, column: pos.col });
             current++;
             continue;
         }
         if (/[(){}]/.test(char)) {
-            throw new Error(`Erro Lexico (WEB): Chaves e Parênteses são proibidos! Use apenas colchetes []. Encontrado: '${char}'`);
+            throw { type: 'Erro Léxico', message: `Chaves e Parênteses são proibidos! Use apenas colchetes []. Encontrado: '${char}'`, line: pos.line, column: pos.col };
         }
         if (/[0-9]/.test(char)) {
             let value = '';
-            while (/[0-9]/.test(char)) { value += char; char = code[++current]; }
-            tokens.push({ type: 'number', value: parseInt(value, 10) });
+            while (current < code.length && /[0-9]/.test(char)) { value += char; char = code[++current]; }
+            tokens.push({ type: 'number', value: parseInt(value, 10), line: pos.line, column: pos.col });
             continue;
         }
         if (char === '"') {
             let value = ''; char = code[++current]; 
             while (current < code.length && char !== '"') { value += char; char = code[++current]; }
-            current++; tokens.push({ type: 'string', value });
+            current++; tokens.push({ type: 'string', value, line: pos.line, column: pos.col });
             continue;
         }
         if (/[a-zA-Z_]/.test(char)) {
             let value = '';
             while (current < code.length && /[a-zA-Z0-9_]/.test(char)) { value += char; char = code[++current]; }
-            if (KEYWORDS.includes(value)) tokens.push({ type: 'keyword', value });
-            else tokens.push({ type: 'identifier', value });
+            if (KEYWORDS.includes(value)) tokens.push({ type: 'keyword', value, line: pos.line, column: pos.col });
+            else tokens.push({ type: 'identifier', value, line: pos.line, column: pos.col });
             continue;
         }
-        throw new Error(`Erro Lexico (WEB): Caractere não reconhecido: '${char}'`);
+        throw { type: 'Erro Léxico', message: `Caractere não reconhecido: '${char}'`, line: pos.line, column: pos.col };
     }
     return tokens;
 }
 
-function syntaxAnalyzer(tokens) {
-    let current = 0;
-    function walk() {
-        if (current >= tokens.length) return null;
-        let token = tokens[current];
-
-        if (token.type === 'keyword' && (token.value === 'esp' || token.value === 'web')) {
-            let envName = token.value; current++; 
-            let body = [];
-            while (current < tokens.length && !(tokens[current].type === 'keyword' && tokens[current].value === envName)) {
-                let stmt = walk(); if (stmt) body.push(stmt);
-            }
-            if (current < tokens.length) current++; 
-            return { type: 'EnvironmentBlock', environment: envName, body };
-        }
-        if (token.type === 'keyword' && (token.value === 'guarda' || token.value === 'crava')) {
-            let kind = token.value; current++; 
-            let nameToken = tokens[current++];
-            if (nameToken.type !== 'identifier') throw new Error(`Erro Sintático (WEB): Esperado nome após '${kind}'`);
-            if (tokens[current].value !== '=') throw new Error(`Erro Sintático (WEB): Esperado '=' na declaração de '${nameToken.value}'`);
-            current++; 
-            let valueNodes = [];
-            while(current < tokens.length && tokens[current].value !== ';') valueNodes.push(tokens[current++]);
-            if (tokens[current] && tokens[current].value !== ';') throw new Error("Erro Sintático (WEB): Faltou ';'");
-            current++; 
-            return { type: 'VariableDeclaration', kind, name: nameToken.value, value: valueNodes };
-        }
-        if (token.type === 'keyword' && token.value === 'tarefa') {
-            current++; let nameToken = tokens[current++];
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (WEB): Esperado '[' para argumentos");
-            current++; 
-            let params = [];
-            while (tokens[current].value !== ']') {
-                if (tokens[current].type === 'identifier') params.push(tokens[current].value);
-                current++;
-            }
-            current++; 
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (WEB): Esperado '[' para bloco da tarefa");
-            current++; 
-            let body = [];
-            while (tokens[current].value !== ']') {
-                let stmt = walk(); if (stmt) body.push(stmt);
-            }
-            current++; 
-            return { type: 'FunctionDeclaration', name: nameToken.value, params, body };
-        }
-        if (token.type === 'keyword' && token.value === 'testa') {
-            current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (WEB): Esperado '[' após 'testa'");
-            current++; 
-            let condition = [];
-            while (tokens[current].value !== ']') condition.push(tokens[current++]);
-            current++; 
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (WEB): Esperado '[' para bloco 'testa'");
-            current++; 
-            let consequent = [];
-            while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) consequent.push(stmt); }
-            current++; 
-            let alternate = null;
-            if (current < tokens.length && tokens[current].value === 'falha') {
-                current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (WEB): Esperado '['");
-                current++; alternate = [];
-                while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) alternate.push(stmt); }
-                current++; 
-            }
-            return { type: 'IfStatement', condition, consequent, alternate };
-        }
-        
-        const uiCommands = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca'];
-        if (token.type === 'keyword' && uiCommands.includes(token.value)) {
-            let funcName = token.value; current++; 
-            if (tokens[current++].value !== '[') throw new Error(`Erro Sintático (WEB): Esperado '[' após '${funcName}'`);
-            let args = [];
-            while (tokens[current].value !== ']') args.push(tokens[current++]);
-            current++; 
-            if (tokens[current].value !== ';') throw new Error(`Erro Sintático (WEB): Esperado ';' após ${funcName}`);
-            current++; 
-            return { type: 'CallExpression', name: funcName, arguments: args };
-        }
-        
-        if (token.type === 'identifier' && current + 1 < tokens.length && tokens[current + 1].value === '=') {
-            let nameToken = token; current += 2; 
-            let valueNodes = [];
-            while(current < tokens.length && tokens[current].value !== ';') valueNodes.push(tokens[current++]);
-            current++; 
-            return { type: 'AssignmentExpression', name: nameToken.value, value: valueNodes };
-        }
-        current++; return { type: 'Unknown', value: token.value };
-    }
-
-    let ast = { type: 'Program', body: [] };
-    while (current < tokens.length) {
-        let node = walk(); if (node && node.type !== 'Unknown') ast.body.push(node);
-    }
-    return ast;
-}
-
-function semanticAnalyzer(ast) {
-    const symbolUniverse = new Set(); 
-    let logs = [];
-    function traverse(node) {
-        if (!node) return;
-        if (Array.isArray(node)) { node.forEach(traverse); return; }
-        switch (node.type) {
-            case 'Program': node.body.forEach(traverse); break;
-            case 'EnvironmentBlock': if(node.environment === 'web') logs.push(`\n🌐 [WEB] Analisando ambiente visual...`); node.body.forEach(traverse); break;
-            case 'FunctionDeclaration':
-                if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (WEB): A tarefa '${node.name}' já existe!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [WEB] Tarefa registrada -> ${node.name}`); traverse(node.body); break;
-            case 'VariableDeclaration':
-                if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (WEB): '${node.name}' já foi declarada!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [WEB] Memória alocada -> '${node.name}'.`); break;
-            case 'AssignmentExpression':
-                if (!symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (WEB): Variável '${node.name}' não existe!`); break;
-            case 'IfStatement': traverse(node.consequent); if (node.alternate) traverse(node.alternate); break;
-        }
-    }
-    traverse(ast);
-    return logs.join('\n');
-}
-
 function tokensToJS(tokensArray) {
+    if(!tokensArray) return '';
     return tokensArray.map(t => {
         if (t.type === 'string') return '"' + t.value + '"';
         if (t.value === 'sim') return 'true';
@@ -193,77 +90,97 @@ function codeGenerator(node) {
             return globals + '\n' + webBlocks;
         case 'EnvironmentBlock': return node.environment === 'web' ? codeGenerator(node.body) : '';
         case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const' : 'let'} ${node.name} = ${tokensToJS(node.value)};`;
-        case 'FunctionDeclaration': return `function ${node.name}(${node.params.join(', ')}) {\n  ${codeGenerator(node.body)}\n}`;
+        case 'FunctionDeclaration': return `function ${node.name}() {\n  ${codeGenerator(node.body)}\n}`;
         case 'AssignmentExpression': return `${node.name} = ${tokensToJS(node.value)};`;
+        
         case 'IfStatement':
             let ifCode = `if (${tokensToJS(node.condition)}) {\n  ${codeGenerator(node.consequent)}\n}`;
             if (node.alternate) ifCode += ` else {\n  ${codeGenerator(node.alternate)}\n}`;
             return ifCode;
+
+        case 'UIElement':
+            let js = `(function(){\n`;
+            let elId = node.id ? `"${node.id.replace(/"/g, '')}"` : `"tema_app"`;
+            
+            if (node.kind === 'tema') {
+                let cor = node.properties.cor ? node.properties.cor.replace(/"/g, '') : 'branco';
+                let bg = cor === 'escuro' || cor === 'preto' ? '#0d0d0d' : cor === 'vermelho' ? '#1a0000' : '#ffffff';
+                let fg = bg === '#ffffff' ? '#111' : '#eee';
+                js += `  document.body.style.backgroundColor = "${bg}";\n`;
+                js += `  document.body.style.color = "${fg}";\n`;
+                js += `})();\n`;
+                return js;
+            }
+
+            let tag = node.kind === 'caixa' ? 'div' : node.kind === 'botao' ? 'button' : 'span';
+            js += `  let el = document.getElementById(${elId}) || document.createElement('${tag}');\n`;
+            js += `  el.id = ${elId};\n`;
+
+            if (node.properties.texto) {
+                js += `  el.innerText = "${node.properties.texto.replace(/"/g, '')}";\n`;
+            }
+            if (node.properties.funcao) {
+                let fName = node.properties.funcao.replace(/"/g, '');
+                js += `  el.onclick = function() { if(typeof window['${fName}'] === 'function') window['${fName}'](); };\n`;
+            }
+
+            let css = "";
+            const DicionarioCores = {
+                "azul": "#0055ff", "vermelho": "#ff3333", "branco": "#ffffff", "preto": "#000000", "verde": "#00cc66",
+                "amarelo": "#ffaa00", "cinza": "#888888"
+            };
+            
+            if (node.properties.cor) {
+                let c = node.properties.cor.replace(/"/g, '');
+                css += `background-color: ${DicionarioCores[c] || c}; color: ${c==='branco'||c==='amarelo' ? '#000' : '#fff'}; `;
+            }
+            
+            if (node.properties.tamanho) {
+                let t = node.properties.tamanho.replace(/"/g, '');
+                if (t === 'grande') css += "padding: 20px; font-size: 24px; font-weight: bold; ";
+                if (t === 'pequeno') css += "padding: 8px 12px; font-size: 14px; ";
+                if (t === 'medio') css += "padding: 12px 18px; font-size: 18px; ";
+                if (t === 'gigante') css += "padding: 30px; font-size: 40px; font-weight: bold; ";
+            }
+
+            if (node.properties.estilo) {
+                let e = node.properties.estilo.replace(/"/g, '');
+                const EstilosProntos = {
+                    "moderno": "border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: 0.2s;",
+                    "arredondado": "border-radius: 50px; border: none;",
+                    "quadrado": "border-radius: 0px; border: 2px solid currentColor;",
+                    "invisivel": "background: transparent; border: none; box-shadow: none;"
+                };
+                css += (EstilosProntos[e] || e) + "; ";
+            }
+
+            if (node.kind === 'botao' && !css.includes('cursor')) css += "cursor: pointer; ";
+            if (css) js += `  el.style.cssText += \`${css}\`;\n`;
+
+            if (node.properties.coloca) {
+                let parentId = node.properties.coloca.replace(/"/g, '');
+                js += `  let parent = document.getElementById("${parentId}");\n`;
+                js += `  if (parent && !el.parentNode) parent.appendChild(el);\n`;
+            } else {
+                js += `  let parent = document.getElementById('app') || document.body;\n`;
+                js += `  if (!el.parentNode) parent.appendChild(el);\n`;
+            }
+
+            js += `})();\n`;
+            return js;
+
         case 'CallExpression':
             let argsArr = [];
             let currentArg = [];
             node.arguments.forEach(t => {
-                if (t.value === ',') {
-                    argsArr.push(tokensToJS(currentArg));
-                    currentArg = [];
-                } else {
-                    currentArg.push(t);
-                }
+                if (t.value === ',') { argsArr.push(tokensToJS(currentArg)); currentArg = []; } 
+                else currentArg.push(t);
             });
             if (currentArg.length > 0) argsArr.push(tokensToJS(currentArg));
 
-            if (node.name === 'caixa') {
-                return `(function(){ let el = document.createElement('div'); el.id = ${argsArr[0]}; document.body.appendChild(el); })();`;
-            }
-            if (node.name === 'texto') {
-                return `(function(){ let el = document.createElement('div'); el.id = ${argsArr[0]}; el.innerText = ${argsArr[1]}; document.body.appendChild(el); })();`;
-            }
-            if (node.name === 'botao') {
-                let funcName = argsArr[2] ? argsArr[2].replace(/"/g, '') : '';
-                return `(function(){ let el = document.createElement('button'); el.id = ${argsArr[0]}; el.innerText = ${argsArr[1]}; el.onclick = function() { if(typeof window['${funcName}'] === 'function') window['${funcName}'](); }; document.body.appendChild(el); })();`;
-            }
-            
-            // O NOVO COMANDO "ESTILO" COM ATALHOS INTELIGENTES
-            if (node.name === 'estilo') {
-                let rawStyle = argsArr[1].replace(/^"|"$/g, ''); // Tira as aspas para poder avaliar
-                let lowerStyle = rawStyle.toLowerCase();
-                let finalStyleCSS = argsArr[1]; // Mantém o original por padrão
-                
-                // DICIONÁRIO DE ESTILOS DA SOLINGUAGEM
-                const ESTILOS_PRONTOS = {
-                    "moderno": `"background:#ffffff; color:#333; border:none; border-radius:12px; padding:15px; font-size:22px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.1); cursor:pointer;"`,
-                    "futurista": `"background:#0a0a1a; color:#00e5ff; border:1px solid #00e5ff; border-radius:8px; padding:15px; font-size:22px; font-weight:bold; box-shadow:0 0 10px rgba(0,229,255,0.3); cursor:pointer;"`,
-                    "primitivo": `"background:#8b5a2b; color:#ffe4c4; border:4px solid #5c4033; border-radius:0px; padding:15px; font-size:22px; font-weight:bold; cursor:pointer;"`,
-                    "arcaico": `"background:#000000; color:#33ff00; border:2px solid #33ff00; border-radius:0px; padding:15px; font-size:22px; font-family:monospace; cursor:pointer;"`,
-                    "windowsxp": `"background:linear-gradient(to bottom, #ece9d8, #d4d0c8); color:#000; border:1px solid #003c74; border-radius:3px; padding:15px; font-size:22px; font-family:Tahoma, sans-serif; box-shadow:inset 1px 1px #fff, inset -1px -1px #808080; cursor:pointer;"`,
-                    // Helpers de Layout Base
-                    "chassi": `"width:320px; margin:40px auto; background:#1a0000; padding:25px; border-radius:15px; border:2px solid #ff0044; box-shadow:0 0 40px rgba(255,0,68,0.4); font-family:sans-serif;"`,
-                    "visor": `"background:#000; color:#ff0044; font-size:40px; padding:15px; text-align:right; border-radius:8px; margin-bottom:20px; border:1px solid #ff0044; font-family:monospace; height:50px; overflow:hidden;"`,
-                    "grid": `"display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;"`
-                };
-
-                // Se o que o usuário escreveu bater com um estilo pronto, ele substitui!
-                if (ESTILOS_PRONTOS[lowerStyle]) {
-                    finalStyleCSS = ESTILOS_PRONTOS[lowerStyle];
-                }
-
-                return `document.getElementById(${argsArr[0]}).style.cssText += ${finalStyleCSS};`;
-            }
-            
-            if (node.name === 'atualiza') {
-                return `document.getElementById(${argsArr[0]}).innerText = ${argsArr[1]};`;
-            }
-            if (node.name === 'coloca') {
-                return `document.getElementById(${argsArr[1]}).appendChild(document.getElementById(${argsArr[0]}));`;
-            }
-            if (node.name === 'limpa') {
-                return `document.body.innerHTML = '';`;
-            }
-            if (node.name === 'tema') {
-                return `(function(){ let t = ${argsArr[0]}; let s = document.createElement('style'); if(t === "vermelho") { document.body.style.backgroundColor = "#0d0000"; document.body.style.color = "#ff4444"; s.innerHTML = "button { transition: 0.2s; } button:hover { filter: brightness(1.2); transform: scale(1.05); } .terminal { border: 1px solid #ff3333 !important; color: #ff6666 !important; background-color: #1a0000 !important; }"; } document.head.appendChild(s); })();`;
-            }
+            if (node.name === 'atualiza') return `(function(){ let e = document.getElementById(${argsArr[0]}); if(e) e.innerText = ${argsArr[1]}; })();`;
+            if (node.name === 'limpa') return `let appNode = document.getElementById('app'); if(appNode) appNode.innerHTML = ''; else document.body.innerHTML = '';`;
             if (node.name === 'mostra') return `console.log(${argsArr.join(', ')});`;
-            if (node.name === 'envia') return `console.log("📡 [MQTT Enviando]: " + ${argsArr.join(', ')});`;
             
             return `${node.name}(${argsArr.join(', ')});`;
         default: return '';
@@ -272,13 +189,30 @@ function codeGenerator(node) {
 
 function compileWeb(code) {
     let executionLogs = "";
+    let allErrors = []; 
+    
     try {
         const tokens = lexicalAnalyzer(code);
-        const ast = syntaxAnalyzer(tokens);
-        executionLogs += semanticAnalyzer(ast) + "\n";
         
-        let webJS = codeGenerator(ast);
-        let hasWebBlock = ast.body.some(n => n.type === 'EnvironmentBlock' && n.environment === 'web');
+        const syntaxResult = syntaxAnalyzer(tokens);
+        allErrors.push(...syntaxResult.errors); 
+        
+        const semanticResult = semanticAnalyzer(syntaxResult.ast);
+        allErrors.push(...semanticResult.errors); 
+        
+        executionLogs += semanticResult.logs + "\n";
+        
+        if (allErrors.length > 0) {
+            let errorText = "\n❌ ERROS DETECTADOS:\n" + allErrors.map(e => `${e.type} na Linha ${e.line}: ${e.message}`).join('\n');
+            return {
+                status: "error",
+                errorDetails: allErrors, 
+                logs: executionLogs + errorText
+            };
+        }
+
+        let webJS = codeGenerator(syntaxResult.ast);
+        let hasWebBlock = syntaxResult.ast.body.some(n => n.type === 'EnvironmentBlock' && n.environment === 'web');
         let generatedWeb = null;
 
         if (hasWebBlock) {
@@ -287,64 +221,61 @@ function compileWeb(code) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Web - SOLinguagem</title>
+    <title>Aplicação SOL</title>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #06060a; color: #f0f0f5; padding: 40px; text-align: center; transition: all 0.3s;}
-        .terminal { background-color: rgba(20, 20, 30, 0.8); border: 1px solid #333; padding: 20px; border-radius: 12px; margin-top: 30px; text-align: left; font-family: monospace; color: #00e5ff; height: 300px; overflow-y: auto;}
-        button { background: linear-gradient(135deg, #00e5ff, #0055ff); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin: 10px; font-weight: bold; transition: all 0.2s;}
-        button:hover { transform: scale(1.05); }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #06060a; color: #f0f0f5; overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
+        #app { width: 100vw; min-height: 100vh; }
+        #logs { 
+            position: fixed; bottom: 20px; right: 20px; 
+            background-color: rgba(20, 20, 30, 0.95); border: 1px solid #333; 
+            padding: 15px; border-radius: 8px; font-family: monospace; color: #00e5ff; 
+            max-height: 200px; max-width: 400px; overflow-y: auto; display: none; 
+            z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.7); 
+        }
     </style>
 </head>
 <body>
-    <div id="default-ui">
-        <h1>Painel de Controle 🚀</h1>
-        <p>Abaixo estão os botões interativos gerados através do código SOL.</p>
-        <div id="action-buttons"></div>
-        <div class="terminal" id="logs"><div>> Sistema Iniciado. Aguardando comandos...</div></div>
-    </div>
+    <div id="app"></div>
+    <div id="logs"></div>
     <script>
         const terminalUI = document.getElementById('logs');
         const oldLog = console.log;
+        let logTimeout;
         console.log = function(message) {
-            if(document.body.contains(terminalUI)) {
+            if(terminalUI) {
+                terminalUI.style.display = 'block';
                 terminalUI.innerHTML += '<div>> ' + message + '</div>';
                 terminalUI.scrollTop = terminalUI.scrollHeight;
+                clearTimeout(logTimeout);
+                logTimeout = setTimeout(() => { terminalUI.style.display = 'none'; }, 6000);
             }
             oldLog.apply(console, arguments);
         };
-
-        const generateDefaultButtons = () => {
-            if(!document.getElementById('action-buttons')) return;
-            const actionsDiv = document.getElementById('action-buttons');
-            for (let prop in window) {
-                if (typeof window[prop] === 'function' && prop !== 'iniciar' && prop !== 'console' && prop !== 'generateDefaultButtons') {
-                    if(window[prop].toString().indexOf('[native code]') === -1) {
-                        let btn = document.createElement('button');
-                        btn.innerText = prop.replace(/_/g, ' ');
-                        btn.onclick = window[prop];
-                        actionsDiv.appendChild(btn);
-                    }
-                }
-            }
-        };
-
-        // === CÓDIGO SOL (WEB) ===
+        // === CÓDIGO SOL GERADO ===
         ${webJS}
-
         if (typeof iniciar === "function") iniciar();
-        generateDefaultButtons();
     </script>
 </body>
 </html>`;
-            executionLogs += "✓ Motor WEB: HTML e DOM configurados usando Estilos Dinâmicos.\n";
+            executionLogs += "✓ Motor WEB: HTML e Código gerados com Sucesso.\n";
         } else {
             executionLogs += "✓ Motor WEB: Nenhum bloco 'web' detectado.\n";
         }
 
         return { status: "success", logs: executionLogs, generatedWeb };
     } catch (error) {
-        return { status: "error", logs: executionLogs + "\n❌ ERRO WEB: " + error.message };
+        if (error.type) {
+            allErrors.push(error);
+            return { 
+                status: "error", 
+                errorDetails: allErrors, 
+                logs: executionLogs + `\n❌ [${error.type} na Linha ${error.line}]:\n` + error.message 
+            };
+        }
+        return { status: "error", logs: executionLogs + "\n❌ ERRO FATAL:\n" + error.message };
     }
 }
 
-module.exports = { compileWeb };
+// AQUI ESTÁ A CHAVE: Exportamos o lexicalAnalyzer para que o terminal.js possa usá-lo!
+module.exports = { compileWeb, lexicalAnalyzer };

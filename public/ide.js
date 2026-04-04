@@ -18,6 +18,7 @@ dynamicStyles.innerHTML = `
     .cm-s-nord .cm-number { color: #d19a66 !important; } 
     .cm-s-nord .cm-operator { color: #56b6c2 !important; } 
     .cm-s-nord .cm-comment { color: #7f848e !important; font-style: italic; } 
+    .cm-s-nord .cm-property { color: #ffaa00 !important; font-style: italic; font-weight: bold; } /* Nova cor para Propriedades */
 
     /* Rainbow Brackets Padrão */
     .cm-s-nord .cm-bracket.cm-level-1 { color: #ffd700 !important; font-weight: bold; } 
@@ -68,6 +69,7 @@ dynamicStyles.innerHTML = `
     :root[data-theme="white"] .cm-s-nord .cm-operator { color: #d32f2f !important; text-shadow: none !important; }
     :root[data-theme="white"] .cm-s-nord .cm-comment { color: #757575 !important; text-shadow: none !important; }
     :root[data-theme="white"] .cm-s-nord .cm-variable { color: #202028 !important; text-shadow: none !important; font-weight: 600; }
+    :root[data-theme="white"] .cm-s-nord .cm-property { color: #ff6600 !important; font-weight: bold; } 
 
     /* TEMA 3: SOL MODERN */
     :root[data-theme="sol-modern"] {
@@ -121,6 +123,12 @@ dynamicStyles.innerHTML = `
     :root[data-theme="galaxy"] .cm-s-nord .cm-number, :root[data-theme="galaxy"] .cm-s-nord .cm-atom { color: #ff00aa !important; }
     :root[data-theme="galaxy"] .cm-s-nord .cm-comment { color: #a890c2 !important; }
     :root[data-theme="galaxy"] .cm-s-nord .cm-operator { color: #f3e8ff !important; }
+
+    /* ESTILIZAÇÃO DO ERRO NO CÓDIGO (Ondulado Vermelho) */
+    .error-underline {
+        text-decoration: underline wavy #ff5f56;
+        background-color: rgba(255, 95, 86, 0.15);
+    }
 `;
 document.head.appendChild(dynamicStyles);
 
@@ -145,11 +153,14 @@ CodeMirror.defineMode("solinguagem", function() {
                 const word = match[0];
                 const keywords = ['tarefa', 'testa', 'falha', 'gira', 'manda', 'esp', 'web'];
                 const types = ['guarda', 'crava'];
-                const builtins = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca']; 
+                const builtins = ['mostra', 'envia', 'tema', 'caixa', 'botao', 'atualiza', 'limpa']; 
+                const properties = ['cor', 'tamanho', 'texto', 'funcao', 'estilo', 'coloca']; // Novas propriedades
                 const atoms = ['sim', 'nao'];
+                
                 if (keywords.includes(word)) return "keyword";
                 if (types.includes(word)) return "def";
                 if (builtins.includes(word)) return "builtin";
+                if (properties.includes(word)) return "property";
                 if (atoms.includes(word)) return "atom";
                 return "variable";
             }
@@ -161,45 +172,40 @@ CodeMirror.defineMode("solinguagem", function() {
     };
 });
 
+// === SINTAXE LIMPA E ENCADEADA ===
 const initialCode = `web
-// ==== Calculadora Customizada em SOLinguagem ====
-guarda valor = 0;
+// ==== Exemplo de Construtor UI em SOLinguagem ====
+guarda valor = 0
 
 tarefa iniciar[] [
-    limpa[];
-    tema["vermelho"];
-    caixa["calculadora"];
-    estilo["calculadora", "width: 320px; margin: 60px auto; background: #0d0000; padding: 25px; border: 2px solid #cc0000; border-radius: 15px; box-shadow: 0 0 30px rgba(255,0,0,0.5); font-family: sans-serif;"];
-    texto["visor", "0"];
-    estilo["visor", "display: block; font-size: 50px; color: #ff3333; background: #000; padding: 15px; text-align: right; margin-bottom: 25px; border: 1px solid #cc0000; border-radius: 8px; font-family: monospace;"];
-    coloca["visor", "calculadora"];
-    caixa["teclas"];
-    estilo["teclas", "display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"];
-    coloca["teclas", "calculadora"];
-    botao["btn_soma", "+ 10", "soma_dez"];
-    estilo["btn_soma", "font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: none; background: #cc0000; color: white;"];
-    coloca["btn_soma", "teclas"];
-    botao["btn_subtrai", "- 5", "subtrai_cinco"];
-    estilo["btn_subtrai", "font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: none; background: #cc0000; color: white;"];
-    coloca["btn_subtrai", "teclas"];
-    botao["btn_zerar", "Zerar Memória", "zerar_visor"];
-    estilo["btn_zerar", "grid-column: span 2; font-size: 22px; padding: 20px; border-radius: 10px; cursor: pointer; border: 1px solid #ff0000; background: linear-gradient(135deg, #880000, #330000); color: white;"];
-    coloca["btn_zerar", "teclas"];
+    limpa[]
+    tema[]cor["escuro"],
+    
+    // Construtor Encadeado (Muito mais limpo!)
+    caixa["visor_caixa"]cor["preto"]tamanho["gigante"]estilo["moderno"],
+    texto["visor_txt"]texto["0"]coloca["visor_caixa"],
+    
+    caixa["teclas"]estilo["display: flex; gap: 10px; margin-top: 15px;"],
+    
+    botao["btn_soma"]texto["+ 10"]cor["azul"]tamanho["medio"]estilo["moderno"]funcao["soma_dez"]coloca["teclas"],
+    botao["btn_subtrai"]texto["- 5"]cor["vermelho"]tamanho["medio"]estilo["moderno"]funcao["subtrai_cinco"]coloca["teclas"],
+    
+    botao["btn_zerar"]texto["Zerar"]cor["cinza"]tamanho["medio"]estilo["moderno"]funcao["zerar_visor"]
 ]
 
 tarefa soma_dez[] [
-    valor = valor + 10;
-    atualiza["visor", valor];
+    valor = valor + 10
+    atualiza["visor_txt", valor]
 ]
 
 tarefa subtrai_cinco[] [
-    valor = valor - 5;
-    atualiza["visor", valor];
+    valor = valor - 5
+    atualiza["visor_txt", valor]
 ]
 
 tarefa zerar_visor[] [
-    valor = 0;
-    atualiza["visor", valor];
+    valor = 0
+    atualiza["visor_txt", valor]
 ]
 web
 `;
@@ -218,7 +224,7 @@ const terminal = document.getElementById("terminal");
 
 let files = JSON.parse(localStorage.getItem(STORAGE_KEY));
 if (!files || files.length === 0) {
-    files = [{ name: "calculadora.sol", content: initialCode, isSaved: true }];
+    files = [{ name: "app.sol", content: initialCode, isSaved: true }];
 }
 
 let activeIndex = 0;
@@ -317,30 +323,17 @@ function renameTab(index) {
     });
 }
 
-// =========================================================
-// LÓGICA DE TROCA DE TEMAS (DARK, WHITE, MODERN, CLASSIC, GALAXY)
-// =========================================================
 const themes = ['dark', 'white', 'sol-modern', 'sol-classic', 'galaxy'];
 let currentThemeIndex = 0;
 
 function toggleIDETheme() {
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
     const newTheme = themes[currentThemeIndex];
-    
-    // Aplica o tema ao :root
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('sol_ide_theme', newTheme);
-    
-    // Pequeno ajuste visual no CodeMirror para o tema White
-    if (newTheme === 'white') {
-        // Embora use cm-s-nord, o CSS que você mandou sobrescreve as cores
-        // Não mudamos o tema do CM para não perder os seletores .cm-s-nord que você definiu
-    }
-
     terminal.innerText += `\n✨ Tema alterado para: ${newTheme.toUpperCase()}\n`;
 }
 
-// Inicializa o tema salvo
 window.onload = () => {
     const savedTheme = localStorage.getItem('sol_ide_theme') || 'dark';
     currentThemeIndex = themes.indexOf(savedTheme);
@@ -462,11 +455,19 @@ menuItems.forEach(item => {
     if (text.includes('Trocar Tema')) item.onclick = toggleIDETheme;
 });
 
+// Vetor global para manter as marcações de erro da IDE
+let currentErrorMarks = [];
+
 const btnCompile = document.getElementById("btn-compile");
 btnCompile.addEventListener("click", async () => {
     const currentFile = files[activeIndex];
     const code = editor.getValue();
     terminal.innerText = "🚀 Iniciando compilação...\n";
+    
+    // Limpa os sublinhados vermelhos antigos antes de tentar compilar
+    currentErrorMarks.forEach(mark => mark.clear());
+    currentErrorMarks = [];
+
     try {
         const response = await fetch('/compile', {
             method: 'POST',
@@ -475,12 +476,71 @@ btnCompile.addEventListener("click", async () => {
         });
         const result = await response.json();
         terminal.innerText += result.logs;
+        
         if (result.status === "success" && result.generatedWeb) {
             const blob = new Blob([result.generatedWeb], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = `app_${currentFile.name.replace('.sol', '.html')}`; a.click();
             URL.revokeObjectURL(url);
+            
+        } else if (result.status === "error" && result.errorDetails && result.errorDetails.length > 0) {
+            
+            // Agora varre a LISTA INTEIRA de erros e desenha todos de uma vez
+            result.errorDetails.forEach(err => {
+                const lineIdx = err.line - 1; // CodeMirror usa index base 0
+                
+                const mark = editor.markText(
+                    { line: lineIdx, ch: 0 }, 
+                    { line: lineIdx, ch: 999 }, // Seleciona a linha toda
+                    // Define o Title usando o tipo para que o desenvolvedor saiba diferenciar ao passar o rato (hover)
+                    { className: 'error-underline', title: `[${err.type}] ${err.message}` } 
+                );
+                currentErrorMarks.push(mark);
+            });
+            
         }
     } catch (error) { terminal.innerText += "⚠️ Erro: " + error.message; }
 });
+
+// =========================================================
+// LÓGICA DO TERMINAL INTERATIVO
+// =========================================================
+const terminalInput = document.getElementById("terminal-input");
+if (terminalInput) {
+    terminalInput.addEventListener("keydown", async (e) => {
+        if (e.key === "Enter") {
+            const comando = terminalInput.value.trim();
+            if (!comando) return;
+            
+            terminalInput.value = "";
+            
+            // Dá feedback imediato na tela
+            terminal.innerText += `\n$ ${comando}\n`;
+
+            try {
+                const response = await fetch('/terminal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        command: comando, 
+                        code: editor.getValue() 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Responde baseado no backend
+                if (result.action === 'clear') {
+                    terminal.innerText = "Conexão com a base estabelecida.\nAguardando comandos...\n";
+                } else if (result.action === 'print') {
+                    terminal.innerText += result.output + "\n";
+                }
+                
+                terminal.scrollTop = terminal.scrollHeight;
+            } catch (error) {
+                terminal.innerText += `⚠️ Erro de rede ao executar comando: ${error.message}\n`;
+            }
+        }
+    });
+}

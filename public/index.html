@@ -27,7 +27,6 @@
         <!-- Sidebar Esquerda Expansível -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <!-- Usando o seu icone personalizado -->
                 <img src="../icon.png" class="brand-icon-img" alt="SOL">
                 <span class="brand-text">SOL IDE</span>
             </div>
@@ -74,6 +73,12 @@
             </div>
             <pre id="terminal">Conexão com a base estabelecida.
 Aguardando comandos...</pre>
+            
+            <!-- NOVA ÁREA DE INPUT PARA COMANDOS DO TERMINAL -->
+            <div class="terminal-input-wrapper">
+                <span class="prompt-symbol">$</span>
+                <input type="text" id="terminal-input" placeholder="Comandos..." autocomplete="off">
+            </div>
             
             <!-- Botão Flutuante Premium -->
             <button id="btn-compile" class="fab-btn" title="Iniciar Compilação">
