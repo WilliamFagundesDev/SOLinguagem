@@ -39,6 +39,7 @@ dynamicStyles.innerHTML = `
     .context-menu-item { padding: 10px 15px; color: #f0f0f5; font-size: 13px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; transition: background 0.2s; }
     .context-menu-item:hover { background: rgba(255, 255, 255, 0.08); }
     .context-menu-item.danger:hover { background: rgba(255, 95, 86, 0.15); color: #ff5f56; }
+    .context-menu-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 5px 0; }
 
     /* --- TEMAS CUSTOMIZADOS --- */
 
@@ -129,6 +130,76 @@ dynamicStyles.innerHTML = `
         text-decoration: underline wavy #ff5f56;
         background-color: rgba(255, 95, 86, 0.15);
     }
+
+    /* ESTILIZAÇÃO DO NOVO SISTEMA DE PESQUISA (CTRL+F) */
+    .vscode-search-box {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        background: rgba(20, 20, 30, 0.95);
+        border: 1px solid var(--accent-glow);
+        padding: 6px 12px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1000;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        backdrop-filter: blur(15px);
+        transform: translateY(-10px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+    }
+    .vscode-search-box.visible {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .vscode-search-box input {
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 4px;
+        color: #fff;
+        outline: none;
+        font-family: var(--font-mono);
+        padding: 5px 8px;
+        width: 180px;
+        font-size: 13px;
+        transition: border-color 0.2s;
+    }
+    .vscode-search-box input:focus {
+        border-color: var(--accent-glow);
+    }
+    .search-count {
+        font-size: 12px;
+        color: #aaa;
+        min-width: 50px;
+        text-align: center;
+        font-family: var(--font-mono);
+    }
+    .search-btn {
+        background: transparent;
+        border: none;
+        color: #aaa;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .search-btn:hover {
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+    .search-btn.close { color: #ff5f56; }
+    .search-btn.close:hover { background: rgba(255, 95, 86, 0.2); }
+    
+    .search-highlight { background-color: rgba(255, 255, 0, 0.3); }
+    .search-highlight-active { background-color: rgba(255, 165, 0, 0.7); color: #fff !important; font-weight: bold; border-radius: 2px;}
 `;
 document.head.appendChild(dynamicStyles);
 
@@ -153,7 +224,7 @@ CodeMirror.defineMode("solinguagem", function() {
                 const word = match[0];
                 const keywords = ['tarefa', 'testa', 'falha', 'gira', 'manda', 'esp', 'web'];
                 const types = ['guarda', 'crava'];
-                const builtins = ['mostra', 'envia', 'tema', 'caixa', 'botao', 'atualiza', 'limpa']; 
+                const builtins = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'atualiza', 'limpa']; 
                 const properties = ['cor', 'tamanho', 'texto', 'funcao', 'estilo', 'coloca']; // Novas propriedades
                 const atoms = ['sim', 'nao'];
                 
@@ -215,8 +286,17 @@ const guideContent = `// =======================================================
 // =========================================================
 `;
 
+// Inicialização do Editor (Agora com atalho para Ctrl+F)
 const editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-    lineNumbers: true, theme: "nord", mode: "solinguagem", indentUnit: 4, matchBrackets: true 
+    lineNumbers: true, 
+    theme: "nord", 
+    mode: "solinguagem", 
+    indentUnit: 4, 
+    matchBrackets: true,
+    extraKeys: {
+        "Ctrl-F": function(cm) { toggleSearchBox(); },
+        "Cmd-F": function(cm) { toggleSearchBox(); }
+    }
 });
 
 const STORAGE_KEY = 'sol_ide_files';
@@ -259,7 +339,7 @@ function showTabContextMenu(e, index) {
         <div class="context-menu-item" data-action="save"><span class="icon">💾</span> Salvar Arquivo</div>
         <div class="context-menu-item" data-action="rename"><span class="icon">✏️</span> Renomear</div>
         <div class="context-menu-item" data-action="export"><span class="icon">⤓</span> Exportar (.sol)</div>
-        <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 5px 0;"></div>
+        <div class="context-menu-divider"></div>
         <div class="context-menu-item danger" data-action="delete"><span class="icon">🗑️</span> Apagar Definitivamente</div>
     `;
     contextMenu.style.top = `${e.clientY}px`;
@@ -281,6 +361,198 @@ function showTabContextMenu(e, index) {
     });
 }
 
+// =========================================================
+// NOVO: SISTEMA DE PESQUISA (CTRL+F) E HIGHLIGHTS
+// =========================================================
+const searchBox = document.createElement('div');
+searchBox.className = 'vscode-search-box';
+searchBox.innerHTML = `
+    <input type="text" id="search-input" placeholder="Pesquisar..." autocomplete="off"/>
+    <span id="search-count" class="search-count">0 de 0</span>
+    <button id="search-prev" class="search-btn" title="Anterior (Shift+Enter)">↑</button>
+    <button id="search-next" class="search-btn" title="Próximo (Enter)">↓</button>
+    <button id="search-close" class="search-btn close" title="Fechar (Esc)">✕</button>
+`;
+document.querySelector('.editor-container').appendChild(searchBox);
+
+const searchInput = document.getElementById('search-input');
+const searchCount = document.getElementById('search-count');
+
+let searchMarks = [];
+let searchMatches = [];
+let currentSearchIndex = -1;
+
+function clearSearch() {
+    searchMarks.forEach(m => m.clear());
+    searchMarks = [];
+    searchMatches = [];
+    currentSearchIndex = -1;
+    searchCount.innerText = '0 de 0';
+}
+
+function performSearch(query) {
+    clearSearch();
+    if (!query) return;
+
+    const content = editor.getValue();
+    // Escapa caracteres especiais de regex
+    const safeQuery = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const regex = new RegExp(safeQuery, 'gi');
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+        const from = editor.posFromIndex(match.index);
+        const to = editor.posFromIndex(match.index + match[0].length);
+        searchMatches.push({from, to});
+        const mark = editor.markText(from, to, {className: 'search-highlight'});
+        searchMarks.push(mark);
+    }
+
+    if (searchMatches.length > 0) {
+        focusSearchMatch(0);
+    } else {
+        searchCount.innerText = '0 de 0';
+    }
+}
+
+function focusSearchMatch(index) {
+    if (searchMatches.length === 0) return;
+    
+    // Remove classe ativa anterior
+    searchMarks.forEach(m => {
+        if(m.className !== 'search-highlight') {
+            m.clear();
+        }
+    });
+
+    currentSearchIndex = (index + searchMatches.length) % searchMatches.length;
+    searchCount.innerText = `${currentSearchIndex + 1} de ${searchMatches.length}`;
+
+    // Destaca a seleção atual
+    const match = searchMatches[currentSearchIndex];
+    // Rola até o termo
+    editor.scrollIntoView({from: match.from, to: match.to}, 100);
+    
+    // Substitui a marcação normal pela ativa
+    searchMarks[currentSearchIndex].clear();
+    searchMarks[currentSearchIndex] = editor.markText(match.from, match.to, {className: 'search-highlight-active'});
+}
+
+function toggleSearchBox() {
+    if (searchBox.classList.contains('visible')) {
+        searchBox.classList.remove('visible');
+        clearSearch();
+        editor.focus();
+    } else {
+        searchBox.classList.add('visible');
+        searchInput.focus();
+        
+        // Se houver texto selecionado, joga direto na pesquisa
+        if(editor.somethingSelected()) {
+            searchInput.value = editor.getSelection();
+        }
+        performSearch(searchInput.value);
+    }
+}
+
+searchInput.addEventListener('input', (e) => performSearch(e.target.value));
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        if (e.shiftKey) focusSearchMatch(currentSearchIndex - 1);
+        else focusSearchMatch(currentSearchIndex + 1);
+    }
+    if (e.key === 'Escape') toggleSearchBox();
+});
+
+document.getElementById('search-next').onclick = () => focusSearchMatch(currentSearchIndex + 1);
+document.getElementById('search-prev').onclick = () => focusSearchMatch(currentSearchIndex - 1);
+document.getElementById('search-close').onclick = toggleSearchBox;
+
+// =========================================================
+// NOVO: MENU DE CONTEXTO DO EDITOR DE CÓDIGO (BOTÃO DIREITO)
+// =========================================================
+const editorContextMenu = document.createElement('div');
+editorContextMenu.className = 'custom-context-menu';
+editorContextMenu.innerHTML = `
+    <div class="context-menu-item" id="ctx-select-all"><span class="icon">🔍</span> Selecionar Todos</div>
+    <div class="context-menu-item" id="ctx-replace-all"><span class="icon">✏️</span> Substituir Todos</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" id="ctx-delete-all"><span class="icon">🗑️</span> Apagar Todos</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" id="ctx-copy"><span class="icon">📋</span> Copiar</div>
+    <div class="context-menu-item" id="ctx-cut"><span class="icon">✂️</span> Recortar</div>
+`;
+document.body.appendChild(editorContextMenu);
+
+// Captura clique direito dentro do código
+editor.getWrapperElement().addEventListener('contextmenu', (e) => {
+    if (editor.somethingSelected()) {
+        e.preventDefault();
+        e.stopPropagation();
+        editorContextMenu.style.display = 'block';
+        editorContextMenu.style.left = e.clientX + 'px';
+        editorContextMenu.style.top = e.clientY + 'px';
+    }
+});
+
+// Ações do Menu de Contexto do Editor
+document.getElementById('ctx-select-all').onclick = () => {
+    const textToFind = editor.getSelection();
+    if (!textToFind) return;
+    
+    const content = editor.getValue();
+    const safeQuery = textToFind.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const regex = new RegExp(safeQuery, 'g');
+    let match;
+    const selections = [];
+    
+    while ((match = regex.exec(content)) !== null) {
+        selections.push({
+            anchor: editor.posFromIndex(match.index),
+            head: editor.posFromIndex(match.index + textToFind.length)
+        });
+    }
+    
+    if (selections.length > 0) {
+        editor.setSelections(selections); // Mágica Multi-cursor!
+        editor.focus();
+    }
+};
+
+document.getElementById('ctx-replace-all').onclick = () => {
+    const textToReplace = editor.getSelection();
+    if (!textToReplace) return;
+    
+    showCustomPrompt(`Substituir todas as instâncias de "${textToReplace}" por:`, textToReplace, (newText) => {
+        // Seleciona todos e substitui com uma única operação (mantém o CTRL+Z intacto)
+        document.getElementById('ctx-select-all').click(); 
+        editor.replaceSelections(Array(editor.listSelections().length).fill(newText));
+        editor.setCursor(editor.getCursor()); // Tira o highlight para evitar bugs
+    });
+};
+
+document.getElementById('ctx-delete-all').onclick = () => {
+    const textToReplace = editor.getSelection();
+    if (!textToReplace) return;
+    
+    document.getElementById('ctx-select-all').click();
+    editor.replaceSelections(Array(editor.listSelections().length).fill(""));
+    editor.setCursor(editor.getCursor());
+    terminal.innerText += `\n> 🗑️ Todas as ocorrências de "${textToReplace}" foram apagadas.\n`;
+};
+
+document.getElementById('ctx-copy').onclick = () => {
+    navigator.clipboard.writeText(editor.getSelection());
+};
+
+document.getElementById('ctx-cut').onclick = () => {
+    navigator.clipboard.writeText(editor.getSelection());
+    editor.replaceSelection("");
+};
+
+// Esconder menu de código ao clicar em outro lugar
+document.addEventListener('click', () => { editorContextMenu.style.display = 'none'; });
+
 function switchTab(index) {
     if (index < 0 || index >= files.length) return;
     activeIndex = index;
@@ -288,6 +560,7 @@ function switchTab(index) {
     editor.setValue(files[activeIndex].content);
     isSwitchingTab = false;
     renderTabs();
+    if(searchBox.classList.contains('visible')) performSearch(searchInput.value);
 }
 
 function showCustomPrompt(title, defaultValue, onConfirm) {
