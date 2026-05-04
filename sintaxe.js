@@ -12,7 +12,10 @@ function syntaxAnalyzer(tokens) {
         if (idx >= tokens.length) return true;
         let t = tokens[idx];
         if (t.value === ']' || t.value === ';') return true;
-        const starters = ['caixa', 'texto', 'botao', 'tema', 'mostra', 'envia', 'atualiza', 'limpa', 'testa', 'guarda', 'crava', 'tarefa', 'falha'];
+        
+        // Adicionado o 'enquanto', 'para', 'escolha' para manter a sintaxe ciente das novas keywords!
+        const starters = ['caixa', 'texto', 'botao', 'tema', 'mostra', 'envia', 'atualiza', 'limpa', 'testa', 'guarda', 'crava', 'tarefa', 'falha', 'enquanto', 'para', 'escolha'];
+        
         if (t.type === 'keyword' && starters.includes(t.value)) return true;
         if (t.type === 'identifier' && idx + 1 < tokens.length && tokens[idx+1].value === '=') return true;
         if (t.type === 'identifier' && idx + 1 < tokens.length && tokens[idx+1].value === '[') return true;
@@ -105,6 +108,24 @@ function syntaxAnalyzer(tokens) {
                 current++; 
             }
             return { type: 'IfStatement', condition, consequent, alternate, line: pos.line };
+        }
+
+        // NOVO: Integração do laço de repetição ("enquanto") providenciado pelo Léxico Avançado
+        if (token.type === 'keyword' && token.value === 'enquanto') {
+            current++;
+            if (!tokens[current] || tokens[current].value !== '[') throwError("Esperado '[' após comando 'enquanto'", current);
+            current++;
+            let condition = [];
+            while (tokens[current] && tokens[current].value !== ']') condition.push(tokens[current++]);
+            current++;
+            if (!tokens[current] || tokens[current].value !== '[') throwError("Esperado '[' para abrir o bloco do 'enquanto'", current);
+            current++;
+            let body = [];
+            while (tokens[current] && tokens[current].value !== ']') {
+                let stmt = walk(); if (stmt) body.push(stmt);
+            }
+            current++; 
+            return { type: 'WhileStatement', condition, body, line: pos.line };
         }
 
         const uiElements = ['caixa', 'botao', 'texto', 'tema'];
