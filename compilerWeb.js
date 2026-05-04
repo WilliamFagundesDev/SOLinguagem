@@ -1,75 +1,7 @@
-// Importando os nossos módulos de Sintaxe e Semântica!
+// Importando o Motor Léxico isolado e Módulos de Sintaxe/Semântica
+const { lexicalAnalyzer, KEYWORDS } = require('./lexico');
 const { syntaxAnalyzer } = require('./sintaxe');
 const { semanticAnalyzer } = require('./semantica');
-
-const KEYWORDS = [
-    'tarefa', 'guarda', 'crava', 'testa', 
-    'falha', 'gira', 'mostra', 'manda', 'envia', 'tema',
-    'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
-    'cor', 'tamanho', 'funcao', 
-    'sim', 'nao', 'esp', 'web'
-];
-
-function lexicalAnalyzer(code) {
-    let current = 0;
-    let tokens = [];
-
-    function getPos() {
-        let line = 1, col = 1;
-        for (let i = 0; i < current; i++) {
-            if (code[i] === '\n') { line++; col = 1; }
-            else { col++; }
-        }
-        return { line, col };
-    }
-
-    while (current < code.length) {
-        let char = code[current];
-        let pos = getPos(); 
-
-        if (/\s/.test(char)) { current++; continue; }
-        if (char === '/' && code[current + 1] === '/') {
-            while (current < code.length && code[current] !== '\n') current++;
-            continue;
-        }
-        if (/[\[\];=><!+\-*/,]/.test(char)) {
-            if ((char === '=' || char === '>' || char === '<' || char === '!') && code[current + 1] === '=') {
-                tokens.push({ type: 'operator', value: char + '=', line: pos.line, column: pos.col });
-                current += 2;
-                continue;
-            }
-            let type = 'punctuation';
-            if (/[+\-*/=><!]/.test(char)) type = 'operator';
-            tokens.push({ type, value: char, line: pos.line, column: pos.col });
-            current++;
-            continue;
-        }
-        if (/[(){}]/.test(char)) {
-            throw { type: 'Erro Léxico', message: `Chaves e Parênteses são proibidos! Use apenas colchetes []. Encontrado: '${char}'`, line: pos.line, column: pos.col };
-        }
-        if (/[0-9]/.test(char)) {
-            let value = '';
-            while (current < code.length && /[0-9]/.test(char)) { value += char; char = code[++current]; }
-            tokens.push({ type: 'number', value: parseInt(value, 10), line: pos.line, column: pos.col });
-            continue;
-        }
-        if (char === '"') {
-            let value = ''; char = code[++current]; 
-            while (current < code.length && char !== '"') { value += char; char = code[++current]; }
-            current++; tokens.push({ type: 'string', value, line: pos.line, column: pos.col });
-            continue;
-        }
-        if (/[a-zA-Z_]/.test(char)) {
-            let value = '';
-            while (current < code.length && /[a-zA-Z0-9_]/.test(char)) { value += char; char = code[++current]; }
-            if (KEYWORDS.includes(value)) tokens.push({ type: 'keyword', value, line: pos.line, column: pos.col });
-            else tokens.push({ type: 'identifier', value, line: pos.line, column: pos.col });
-            continue;
-        }
-        throw { type: 'Erro Léxico', message: `Caractere não reconhecido: '${char}'`, line: pos.line, column: pos.col };
-    }
-    return tokens;
-}
 
 function tokensToJS(tokensArray) {
     if(!tokensArray) return '';
@@ -77,6 +9,7 @@ function tokensToJS(tokensArray) {
         if (t.type === 'string') return '"' + t.value + '"';
         if (t.value === 'sim') return 'true';
         if (t.value === 'nao') return 'false';
+        if (t.value === 'nulo') return 'null';
         return t.value;
     }).join(' ');
 }
@@ -97,6 +30,9 @@ function codeGenerator(node) {
             let ifCode = `if (${tokensToJS(node.condition)}) {\n  ${codeGenerator(node.consequent)}\n}`;
             if (node.alternate) ifCode += ` else {\n  ${codeGenerator(node.alternate)}\n}`;
             return ifCode;
+
+        case 'WhileStatement': // Novo laço gerado via nova sintaxe e léxico
+            return `while (${tokensToJS(node.condition)}) {\n  ${codeGenerator(node.body)}\n}`;
 
         case 'UIElement':
             let js = `(function(){\n`;
@@ -277,5 +213,4 @@ function compileWeb(code) {
     }
 }
 
-// AQUI ESTÁ A CHAVE: Exportamos o lexicalAnalyzer para que o terminal.js possa usá-lo!
 module.exports = { compileWeb, lexicalAnalyzer };

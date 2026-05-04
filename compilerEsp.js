@@ -1,60 +1,5 @@
-const KEYWORDS = [
-    'tarefa', 'guarda', 'crava', 'testa', 
-    'falha', 'gira', 'mostra', 'manda', 'envia', 'tema',
-    'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
-    'sim', 'nao', 'esp', 'web'
-];
-
-// O motor Lexico e Sintático se mantém idêntico para evitar erros
-function lexicalAnalyzer(code) {
-    let current = 0;
-    let tokens = [];
-
-    while (current < code.length) {
-        let char = code[current];
-        if (/\s/.test(char)) { current++; continue; }
-        if (char === '/' && code[current + 1] === '/') {
-            while (current < code.length && code[current] !== '\n') current++;
-            continue;
-        }
-        if (/[\[\];=><!+\-*/,]/.test(char)) {
-            if ((char === '=' || char === '>' || char === '<' || char === '!') && code[current + 1] === '=') {
-                tokens.push({ type: 'operator', value: char + '=' });
-                current += 2;
-                continue;
-            }
-            let type = 'punctuation';
-            if (/[+\-*/=><!]/.test(char)) type = 'operator';
-            tokens.push({ type, value: char });
-            current++;
-            continue;
-        }
-        if (/[(){}]/.test(char)) {
-            throw new Error(`Erro Lexico (ESP): Chaves e Parênteses são proibidos! Use apenas colchetes []. Encontrado: '${char}'`);
-        }
-        if (/[0-9]/.test(char)) {
-            let value = '';
-            while (/[0-9]/.test(char)) { value += char; char = code[++current]; }
-            tokens.push({ type: 'number', value: parseInt(value, 10) });
-            continue;
-        }
-        if (char === '"') {
-            let value = ''; char = code[++current]; 
-            while (current < code.length && char !== '"') { value += char; char = code[++current]; }
-            current++; tokens.push({ type: 'string', value });
-            continue;
-        }
-        if (/[a-zA-Z_]/.test(char)) {
-            let value = '';
-            while (current < code.length && /[a-zA-Z0-9_]/.test(char)) { value += char; char = code[++current]; }
-            if (KEYWORDS.includes(value)) tokens.push({ type: 'keyword', value });
-            else tokens.push({ type: 'identifier', value });
-            continue;
-        }
-        throw new Error(`Erro Lexico (ESP): Caractere não reconhecido: '${char}'`);
-    }
-    return tokens;
-}
+// Importando o Motor Léxico centralizado para manter o padrão idêntico ao Web
+const { lexicalAnalyzer } = require('./lexico');
 
 function syntaxAnalyzer(tokens) {
     let current = 0;
@@ -122,6 +67,21 @@ function syntaxAnalyzer(tokens) {
             }
             return { type: 'IfStatement', condition, consequent, alternate };
         }
+
+        // Adição da Sintaxe para o comando de Repetição (enquanto) para ESP32
+        if (token.type === 'keyword' && token.value === 'enquanto') {
+            current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' após 'enquanto'");
+            current++; 
+            let condition = [];
+            while (tokens[current].value !== ']') condition.push(tokens[current++]);
+            current++; 
+            if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' para abrir o bloco do 'enquanto'");
+            current++; 
+            let body = [];
+            while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) body.push(stmt); }
+            current++; 
+            return { type: 'WhileStatement', condition, body };
+        }
         
         const uiCommands = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca'];
         if (token.type === 'keyword' && uiCommands.includes(token.value)) {
@@ -170,6 +130,7 @@ function semanticAnalyzer(ast) {
             case 'AssignmentExpression':
                 if (!symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): Variável '${node.name}' não existe!`); break;
             case 'IfStatement': traverse(node.consequent); if (node.alternate) traverse(node.alternate); break;
+            case 'WhileStatement': traverse(node.body); break;
         }
     }
     traverse(ast);
@@ -190,6 +151,12 @@ function codeGeneratorCpp(node) {
         case 'EnvironmentBlock': return node.environment === 'esp' ? codeGeneratorCpp(node.body) : '';
         case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const int' : 'int'} ${node.name} = ${node.value.map(n => n.value).join('')};`;
         case 'FunctionDeclaration': return `void ${node.name}(${node.params.map(p => `String ${p}`).join(', ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
+        case 'IfStatement':
+            let ifCode = `if (${node.condition.map(n => n.value).join(' ')}) {\n  ${codeGeneratorCpp(node.consequent)}\n}`;
+            if (node.alternate) ifCode += ` else {\n  ${codeGeneratorCpp(node.alternate)}\n}`;
+            return ifCode;
+        case 'WhileStatement':
+            return `while (${node.condition.map(n => n.value).join(' ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
         case 'CallExpression': 
             // O motor ESP ignora silenciosamente os comandos de UI exclusivos da Web!
             if (['caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca', 'tema'].includes(node.name)) {
@@ -221,7 +188,12 @@ function compileEsp(code) {
 
         return { status: "success", logs: executionLogs, generatedCpp };
     } catch (error) {
-        return { status: "error", logs: executionLogs + "\n❌ ERRO ESP32: " + error.message };
+        // Agora o Léxico repassa a Linha de erro. Vamos capturar isso para o terminal do ESP!
+        let errMsg = error.message;
+        if(error.type) {
+            errMsg = `[${error.type} na Linha ${error.line}]: ${error.message}`;
+        }
+        return { status: "error", logs: executionLogs + "\n❌ ERRO ESP32: " + errMsg };
     }
 }
 
