@@ -9,13 +9,9 @@ const { processTerminalCommand } = require('./terminal');
 const app = express();
 const PORT = 3000;
 
-// Permite que o Node entenda JSON no corpo das requisições
 app.use(express.json());
-
-// Serve os arquivos estáticos da pasta "public" (nossa interface)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rota onde o Frontend vai enviar o código SOL para ser compilado
 app.post('/compile', (req, res) => {
     const solCode = req.body.code.trim(); 
     
@@ -24,7 +20,8 @@ app.post('/compile', (req, res) => {
     let combinedLogs = "";
     let finalStatus = "success";
     let generatedWeb = null;
-    let errorDetails = []; // Agora é um Array que pode guardar MÚLTIPLOS erros simultâneos!
+    let generatedCpp = null; // <-- ADICIONADO: Variável para guardar o C++ gerado
+    let errorDetails = []; 
 
     if (solCode.startsWith("web") && solCode.endsWith("web")) {
         combinedLogs += "=== DETECTADO AMBIENTE: WEB ===\n";
@@ -34,13 +31,15 @@ app.post('/compile', (req, res) => {
         
         if (webResult.status === 'error') {
             finalStatus = 'error';
-            if (webResult.errorDetails) errorDetails = webResult.errorDetails; // Passa o Array todo
+            if (webResult.errorDetails) errorDetails = webResult.errorDetails; 
         }
     } 
     else if (solCode.startsWith("esp") && solCode.endsWith("esp")) {
         combinedLogs += "=== DETECTADO AMBIENTE: ESP32 ===\n";
         const espResult = compileEsp(solCode);
         combinedLogs += espResult.logs + "\n";
+        
+        generatedCpp = espResult.generatedCpp; // <-- ADICIONADO: Capturando o código C++ do compilador
         
         if (espResult.status === 'error') {
             finalStatus = 'error';
@@ -59,11 +58,11 @@ app.post('/compile', (req, res) => {
         message: "Operação finalizada.",
         logs: combinedLogs,
         generatedWeb: generatedWeb,
-        errorDetails: errorDetails // Envia a lista inteira de erros para o Frontend
+        generatedCpp: generatedCpp, // <-- ADICIONADO: Enviando o C++ para o frontend
+        errorDetails: errorDetails 
     });
 });
 
-// NOVA ROTA: COMANDOS DO TERMINAL
 app.post('/terminal', (req, res) => {
     const command = req.body.command || '';
     const code = req.body.code || '';
