@@ -182,7 +182,7 @@ function codeGeneratorCpp(node) {
             let espBlocks = node.body.filter(n => n.type === 'EnvironmentBlock' && n.environment === 'esp').map(codeGeneratorCpp).join('\n');
             if(espBlocks.trim().length > 0) {
                 // Truque avançado: cria um iniciar() fraco para a IDE do Arduino não dar erro caso o utilizador não crie a tarefa principal
-                return `// CÓDIGO C++ GERADO PARA HARDWARE\n#include <WiFi.h>\n\nvoid iniciar() __attribute__((weak));\nvoid iniciar() {}\n\n${espBlocks}\n\nvoid setup() {\n  Serial.begin(115200);\n  iniciar();\n}\n\nvoid loop() {\n  // Lógica principal rola nas tarefas\n}`;
+                return `// CÓDIGO C++ GERADO PARA HARDWARE\n\n${espBlocks}\n\nvoid setup() {\n  Serial.begin(115200);\n  iniciar();\n}\n\nvoid loop() {\n  // Lógica principal rola nas tarefas\n}`;
             }
             return '';
         case 'EnvironmentBlock': return node.environment === 'esp' ? codeGeneratorCpp(node.body) : '';
