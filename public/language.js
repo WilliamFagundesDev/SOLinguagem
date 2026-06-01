@@ -1,22 +1,18 @@
-export const initialCode = `web
-// ==== Exemplo de Construtor UI em SOLinguagem ====
-guarda valor = 0
+export const initialCode = `arduino
+// ==== Exemplo Arduino: pisca LED interno do Uno ====
+crava led = 13
 
 tarefa iniciar[] [
-    limpa[]
-    tema[]cor["escuro"],
-    caixa["visor_caixa"]cor["preto"]tamanho["gigante"]estilo["moderno"],
-    texto["visor_txt"]texto["0"]coloca["visor_caixa"],
-    caixa["teclas"]estilo["display: flex; gap: 10px; margin-top: 15px;"],
-    botao["btn_soma"]texto["+ 10"]cor["azul"]tamanho["medio"]estilo["moderno"]funcao["soma_dez"]coloca["teclas"],
-    botao["btn_subtrai"]texto["- 5"]cor["vermelho"]tamanho["medio"]estilo["moderno"]funcao["subtrai_cinco"]coloca["teclas"],
-    botao["btn_zerar"]texto["Zerar"]cor["cinza"]tamanho["medio"]estilo["moderno"]funcao["zerar_visor"]
+    mostra["Arduino iniciou"]
 ]
 
-tarefa soma_dez[] [ valor = valor + 10; atualiza["visor_txt", valor] ]
-tarefa subtrai_cinco[] [ valor = valor - 5; atualiza["visor_txt", valor] ]
-tarefa zerar_visor[] [ valor = 0; atualiza["visor_txt", valor] ]
-web
+tarefa repetir[] [
+    envia[led, sim]
+    espera[500]
+    envia[led, nao]
+    espera[500]
+]
+arduino
 `;
 
 // =========================================================
@@ -61,7 +57,8 @@ export const guideContent = `/* ================================================
 
 // [ Escopos do Sistema ]
 // web       : Define que o código compila para Interface Web (JS).
-// esp       : Define que o código compila para Hardware (C++ / IoT).
+// arduino   : Define que o código compila para Hardware Arduino (C++ / .ino).
+// esp       : Alias antigo mantido por compatibilidade.
 
 // -----------------------------------------------------------------
 // 3. CONSTRUTORES DE INTERFACE E EVENTOS
@@ -147,7 +144,7 @@ export function setupLanguage(CodeMirror) {
                 const match = stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
                 if (match) {
                     const word = match[0];
-                    const keywords = ['tarefa', 'testa', 'falha', 'enquanto', 'para', 'escolha', 'caso', 'padrao', 'quebra', 'continua', 'retorna', 'gira', 'manda', 'esp', 'web'];
+                    const keywords = ['tarefa', 'testa', 'falha', 'enquanto', 'para', 'escolha', 'caso', 'padrao', 'quebra', 'continua', 'retorna', 'gira', 'manda', 'arduino', 'esp', 'web'];
                     const types = ['guarda', 'crava'];
                     const builtins = ['mostra', 'envia', 'tema', 'caixa', 'texto', 'botao', 'atualiza', 'limpa']; 
                     const properties = ['cor', 'tamanho', 'texto', 'funcao', 'estilo', 'coloca']; 

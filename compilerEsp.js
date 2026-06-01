@@ -1,248 +1,562 @@
-// Importando o Motor Léxico centralizado
+// =========================================================
+// COMPILADOR ARDUINO - SOLINGUAGEM -> Arduino C++ (.ino)
+// =========================================================
+// Esta etapa NÃO grava na placa sozinha. Ela transforma o código SOL em
+// C++ Arduino. A gravação/compilação real é feita pelo arduinoService.js
+// usando o arduino-cli.
+
 const { lexicalAnalyzer } = require('./lexico');
 
-function syntaxAnalyzer(tokens) {
+function createParser(tokens) {
     let current = 0;
 
-    // Função auxiliar para tornar o ';' opcional e saber onde quebrar comandos
-    function isStmtStarter(idx) {
-        if (idx >= tokens.length) return true;
-        let t = tokens[idx];
-        if (t.value === ';' || t.value === ']') return true;
-        
-        // Se o Léxico já classificou como palavra-chave, é um novo comando nativo!
-        if (t.type === 'keyword') return true;
-        
-        // Se for um nome seguido de '[' (Chamada de Função) ou '=' (Atribuição)
-        if (t.type === 'identifier' && idx + 1 < tokens.length && (tokens[idx+1].value === '[' || tokens[idx+1].value === '=')) return true;
-        
+    function atEnd() {
+        return current >= tokens.length;
+    }
+
+    function peek(offset = 0) {
+        return tokens[current + offset];
+    }
+
+    function previous() {
+        return tokens[current - 1];
+    }
+
+    function advance() {
+        if (!atEnd()) current++;
+        return previous();
+    }
+
+    function checkValue(value) {
+        return !atEnd() && peek().value === value;
+    }
+
+    function checkKeyword(value) {
+        return !atEnd() && peek().type === 'keyword' && peek().value === value;
+    }
+
+    function matchValue(value) {
+        if (checkValue(value)) {
+            advance();
+            return true;
+        }
         return false;
     }
 
-    function walk() {
-        if (current >= tokens.length) return null;
-        let token = tokens[current];
-
-        // 1. BLOCOS DE AMBIENTE (esp / web)
-        if (token.type === 'keyword' && (token.value === 'esp' || token.value === 'web')) {
-            let envName = token.value; current++; 
-            let body = [];
-            while (current < tokens.length && !(tokens[current].type === 'keyword' && tokens[current].value === envName)) {
-                let stmt = walk(); if (stmt) body.push(stmt);
-            }
-            if (current < tokens.length) current++; 
-            return { type: 'EnvironmentBlock', environment: envName, body };
+    function matchKeyword(value) {
+        if (checkKeyword(value)) {
+            advance();
+            return true;
         }
-
-        // 2. DECLARAÇÃO DE VARIÁVEIS (guarda / crava)
-        if (token.type === 'keyword' && (token.value === 'guarda' || token.value === 'crava')) {
-            let kind = token.value; current++; 
-            let nameToken = tokens[current++];
-            if (nameToken.type !== 'identifier') throw new Error(`Erro Sintático (ESP): Esperado nome após '${kind}'`);
-            if (tokens[current].value !== '=') throw new Error(`Erro Sintático (ESP): Esperado '=' na declaração de '${nameToken.value}'`);
-            current++; 
-            let valueNodes = [];
-            while(current < tokens.length && !isStmtStarter(current)) {
-                valueNodes.push(tokens[current++]);
-            }
-            if (current < tokens.length && tokens[current].value === ';') current++; 
-            return { type: 'VariableDeclaration', kind, name: nameToken.value, value: valueNodes };
-        }
-
-        // 3. DECLARAÇÃO DE TAREFAS
-        if (token.type === 'keyword' && token.value === 'tarefa') {
-            current++; let nameToken = tokens[current++];
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' para argumentos");
-            current++; 
-            let params = [];
-            while (tokens[current].value !== ']') {
-                if (tokens[current].type === 'identifier') params.push(tokens[current].value);
-                current++;
-            }
-            current++; 
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' para bloco da tarefa");
-            current++; 
-            let body = [];
-            while (tokens[current].value !== ']') {
-                let stmt = walk(); if (stmt) body.push(stmt);
-            }
-            current++; 
-            return { type: 'FunctionDeclaration', name: nameToken.value, params, body };
-        }
-
-        // 4. CONDICIONAIS (testa / falha)
-        if (token.type === 'keyword' && token.value === 'testa') {
-            current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' após 'testa'");
-            current++; 
-            let condition = [];
-            while (tokens[current].value !== ']') condition.push(tokens[current++]);
-            current++; 
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' para bloco 'testa'");
-            current++; 
-            let consequent = [];
-            while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) consequent.push(stmt); }
-            current++; 
-            let alternate = null;
-            if (current < tokens.length && tokens[current].value === 'falha') {
-                current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '['");
-                current++; alternate = [];
-                while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) alternate.push(stmt); }
-                current++; 
-            }
-            return { type: 'IfStatement', condition, consequent, alternate };
-        }
-
-        // 5. LAÇO DE REPETIÇÃO (enquanto)
-        if (token.type === 'keyword' && token.value === 'enquanto') {
-            current++; if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' após 'enquanto'");
-            current++; 
-            let condition = [];
-            while (tokens[current].value !== ']') condition.push(tokens[current++]);
-            current++; 
-            if (tokens[current].value !== '[') throw new Error("Erro Sintático (ESP): Esperado '[' para abrir o bloco do 'enquanto'");
-            current++; 
-            let body = [];
-            while (tokens[current].value !== ']') { let stmt = walk(); if (stmt) body.push(stmt); }
-            current++; 
-            return { type: 'WhileStatement', condition, body };
-        }
-        
-        // 6. CHAMADAS DE FUNÇÕES GENÉRICAS (envia, espera, mostra, ou tarefas customizadas)
-        if ((token.type === 'keyword' || token.type === 'identifier') && current + 1 < tokens.length && tokens[current + 1].value === '[') {
-            let funcName = token.value; current += 2; 
-            let args = [];
-            while (current < tokens.length && tokens[current].value !== ']') {
-                if (tokens[current].value !== ',') args.push(tokens[current]); // Ignora vírgulas
-                current++;
-            }
-            if (current < tokens.length) current++; // Pula o ']'
-            if (current < tokens.length && tokens[current].value === ';') current++; // Ponto e vírgula opcional
-            return { type: 'CallExpression', name: funcName, arguments: args };
-        }
-        
-        // 7. ATRIBUIÇÃO DE VARIÁVEIS (x = 10)
-        if (token.type === 'identifier' && current + 1 < tokens.length && tokens[current + 1].value === '=') {
-            let nameToken = token; current += 2; 
-            let valueNodes = [];
-            while(current < tokens.length && !isStmtStarter(current)) {
-                valueNodes.push(tokens[current++]);
-            }
-            if (current < tokens.length && tokens[current].value === ';') current++; 
-            return { type: 'AssignmentExpression', name: nameToken.value, value: valueNodes };
-        }
-
-        current++; return { type: 'Unknown', value: token.value };
+        return false;
     }
 
-    let ast = { type: 'Program', body: [] };
-    while (current < tokens.length) {
-        let node = walk(); if (node && node.type !== 'Unknown') ast.body.push(node);
+    function error(message, token = peek()) {
+        const lineInfo = token && token.line ? ` Linha ${token.line}, coluna ${token.column}.` : '';
+        const err = new Error(`${message}.${lineInfo}`);
+        err.line = token && token.line ? token.line : null;
+        err.column = token && token.column ? token.column : null;
+        err.type = 'Erro Sintático Arduino';
+        throw err;
     }
-    return ast;
+
+    function expectValue(value, message) {
+        if (matchValue(value)) return previous();
+        error(message || `Esperado '${value}'`);
+    }
+
+    function expectIdentifier(message) {
+        const token = peek();
+        if (token && token.type === 'identifier') return advance();
+        error(message || 'Esperado um nome/identificador', token);
+    }
+
+    function consumeOptionalSemicolon() {
+        matchValue(';');
+    }
+
+    function isStatementStart(token = peek(), next = peek(1)) {
+        if (!token) return true;
+        if (token.value === ';' || token.value === ']') return true;
+        if (token.type === 'keyword') return true;
+        return token.type === 'identifier' && next && (next.value === '[' || next.value === '=');
+    }
+
+    function readExpressionUntilStatementBoundary() {
+        const expression = [];
+        while (!atEnd() && !isStatementStart()) {
+            expression.push(advance());
+        }
+        return expression;
+    }
+
+    function readExpressionInsideBrackets() {
+        const expression = [];
+        let depth = 1;
+
+        while (!atEnd() && depth > 0) {
+            const token = advance();
+            if (token.value === '[') depth++;
+            if (token.value === ']') depth--;
+            if (depth > 0) expression.push(token);
+        }
+
+        if (depth !== 0) error('Bloco/expressão com colchete não fechado');
+        return expression;
+    }
+
+    function parseEnvironment() {
+        const envName = advance().value;
+        const body = [];
+
+        while (!atEnd() && !checkKeyword(envName)) {
+            const stmt = parseStatement();
+            if (stmt) body.push(stmt);
+        }
+
+        if (!matchKeyword(envName)) error(`Esperado '${envName}' para fechar o bloco de ambiente`);
+        return { type: 'EnvironmentBlock', environment: envName, body };
+    }
+
+    function parseVariableDeclaration() {
+        const kind = advance().value;
+        const name = expectIdentifier(`Esperado nome da variável após '${kind}'`);
+        expectValue('=', `Esperado '=' na declaração de '${name.value}'`);
+        const value = readExpressionUntilStatementBoundary();
+        if (value.length === 0) error(`Esperado valor para '${name.value}'`, name);
+        consumeOptionalSemicolon();
+        return { type: 'VariableDeclaration', kind, name: name.value, value, line: name.line };
+    }
+
+    function parseFunctionDeclaration() {
+        advance(); // tarefa
+        const name = expectIdentifier("Esperado nome da tarefa após 'tarefa'");
+
+        expectValue('[', "Esperado '[' para os parâmetros da tarefa");
+        const params = [];
+        while (!atEnd() && !checkValue(']')) {
+            const token = advance();
+            if (token.type === 'identifier') params.push(token.value);
+        }
+        expectValue(']', "Esperado ']' ao final dos parâmetros da tarefa");
+
+        expectValue('[', "Esperado '[' para abrir o corpo da tarefa");
+        const body = [];
+        while (!atEnd() && !checkValue(']')) {
+            const stmt = parseStatement();
+            if (stmt) body.push(stmt);
+        }
+        expectValue(']', "Esperado ']' para fechar o corpo da tarefa");
+
+        return { type: 'FunctionDeclaration', name: name.value, params, body, line: name.line };
+    }
+
+    function parseIfStatement() {
+        advance(); // testa
+        expectValue('[', "Esperado '[' após 'testa'");
+        const condition = readExpressionInsideBrackets();
+
+        expectValue('[', "Esperado '[' para abrir o bloco do 'testa'");
+        const consequent = [];
+        while (!atEnd() && !checkValue(']')) {
+            const stmt = parseStatement();
+            if (stmt) consequent.push(stmt);
+        }
+        expectValue(']', "Esperado ']' para fechar o bloco do 'testa'");
+
+        let alternate = null;
+        if (matchKeyword('falha')) {
+            expectValue('[', "Esperado '[' para abrir o bloco do 'falha'");
+            alternate = [];
+            while (!atEnd() && !checkValue(']')) {
+                const stmt = parseStatement();
+                if (stmt) alternate.push(stmt);
+            }
+            expectValue(']', "Esperado ']' para fechar o bloco do 'falha'");
+        }
+
+        return { type: 'IfStatement', condition, consequent, alternate };
+    }
+
+    function parseWhileStatement() {
+        advance(); // enquanto
+        expectValue('[', "Esperado '[' após 'enquanto'");
+        const condition = readExpressionInsideBrackets();
+
+        expectValue('[', "Esperado '[' para abrir o bloco do 'enquanto'");
+        const body = [];
+        while (!atEnd() && !checkValue(']')) {
+            const stmt = parseStatement();
+            if (stmt) body.push(stmt);
+        }
+        expectValue(']', "Esperado ']' para fechar o bloco do 'enquanto'");
+
+        return { type: 'WhileStatement', condition, body };
+    }
+
+    function parseCallExpression() {
+        const name = advance();
+        expectValue('[', `Esperado '[' após '${name.value}'`);
+        const args = [];
+        let currentArg = [];
+        let depth = 1;
+
+        while (!atEnd() && depth > 0) {
+            const token = advance();
+
+            if (token.value === '[') {
+                depth++;
+                currentArg.push(token);
+                continue;
+            }
+
+            if (token.value === ']') {
+                depth--;
+                if (depth === 0) break;
+                currentArg.push(token);
+                continue;
+            }
+
+            if (token.value === ',' && depth === 1) {
+                args.push(currentArg);
+                currentArg = [];
+                continue;
+            }
+
+            currentArg.push(token);
+        }
+
+        if (depth !== 0) error(`Chamada '${name.value}' com colchete não fechado`, name);
+        if (currentArg.length > 0) args.push(currentArg);
+        consumeOptionalSemicolon();
+
+        return { type: 'CallExpression', name: name.value, arguments: args, line: name.line };
+    }
+
+    function parseAssignment() {
+        const name = advance();
+        expectValue('=', `Esperado '=' na atribuição de '${name.value}'`);
+        const value = readExpressionUntilStatementBoundary();
+        if (value.length === 0) error(`Esperado valor para '${name.value}'`, name);
+        consumeOptionalSemicolon();
+        return { type: 'AssignmentExpression', name: name.value, value, line: name.line };
+    }
+
+    function parseStatement() {
+        if (atEnd()) return null;
+
+        if (matchValue(';')) return null;
+
+        const token = peek();
+
+        if (token.type === 'keyword' && (token.value === 'arduino' || token.value === 'esp' || token.value === 'web')) return parseEnvironment();
+        if (token.type === 'keyword' && (token.value === 'guarda' || token.value === 'crava')) return parseVariableDeclaration();
+        if (checkKeyword('tarefa')) return parseFunctionDeclaration();
+        if (checkKeyword('testa')) return parseIfStatement();
+        if (checkKeyword('enquanto')) return parseWhileStatement();
+
+        if ((token.type === 'keyword' || token.type === 'identifier') && peek(1) && peek(1).value === '[') {
+            return parseCallExpression();
+        }
+
+        if (token.type === 'identifier' && peek(1) && peek(1).value === '=') {
+            return parseAssignment();
+        }
+
+        error(`Comando Arduino não reconhecido: '${token.value}'`, token);
+    }
+
+    function parseProgram() {
+        const body = [];
+        while (!atEnd()) {
+            const stmt = parseStatement();
+            if (stmt) body.push(stmt);
+        }
+        return { type: 'Program', body };
+    }
+
+    return { parseProgram };
+}
+
+function syntaxAnalyzer(tokens) {
+    return createParser(tokens).parseProgram();
 }
 
 function semanticAnalyzer(ast) {
-    const symbolUniverse = new Set(); 
-    let logs = [];
+    const scopes = [new Set()];
+    const functions = new Set();
+    const logs = [];
+
+    function currentScope() {
+        return scopes[scopes.length - 1];
+    }
+
+    function declare(name, kind, line) {
+        if (currentScope().has(name)) {
+            const err = new Error(`${kind} '${name}' já foi declarado(a). Linha ${line || '?'}.`);
+            err.type = 'Erro Semântico Arduino';
+            err.line = line || null;
+            throw err;
+        }
+        currentScope().add(name);
+    }
+
+    function exists(name) {
+        return scopes.some(scope => scope.has(name)) || functions.has(name);
+    }
+
     function traverse(node) {
         if (!node) return;
-        if (Array.isArray(node)) { node.forEach(traverse); return; }
+        if (Array.isArray(node)) return node.forEach(traverse);
+
         switch (node.type) {
-            case 'Program': node.body.forEach(traverse); break;
-            case 'EnvironmentBlock': if(node.environment === 'esp') logs.push(`\n🔌 [ESP32] Analisando hardware...`); node.body.forEach(traverse); break;
-            case 'FunctionDeclaration':
-                if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): A tarefa '${node.name}' já existe!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [ESP32] Rotina alocada -> ${node.name}()`); traverse(node.body); break;
+            case 'Program':
+                return traverse(node.body);
+
+            case 'EnvironmentBlock':
+                if (node.environment === 'arduino' || node.environment === 'esp') logs.push('🔌 [Arduino] Bloco de hardware encontrado.');
+                return traverse(node.body);
+
             case 'VariableDeclaration':
-                if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): '${node.name}' já foi declarada!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [ESP32] Pino/Memória alocado -> '${node.name}'.`); break;
+                declare(node.name, 'Variável', node.line);
+                logs.push(`⚙️ [Arduino] Variável/pino '${node.name}' alocado.`);
+                return;
+
+            case 'FunctionDeclaration':
+                if (functions.has(node.name)) {
+                    const err = new Error(`A tarefa '${node.name}' já existe. Linha ${node.line || '?'}.`);
+                    err.type = 'Erro Semântico Arduino';
+                    err.line = node.line || null;
+                    throw err;
+                }
+                functions.add(node.name);
+                logs.push(`⚙️ [Arduino] Tarefa '${node.name}' encontrada.`);
+                scopes.push(new Set(node.params));
+                traverse(node.body);
+                scopes.pop();
+                return;
+
             case 'AssignmentExpression':
-                if (!symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): Variável '${node.name}' não existe!`); break;
-            case 'IfStatement': traverse(node.consequent); if (node.alternate) traverse(node.alternate); break;
-            case 'WhileStatement': traverse(node.body); break;
-            case 'CallExpression': break; // Libera a passagem das funções para o gerador C++ avaliar
+                if (!exists(node.name)) {
+                    const err = new Error(`Variável '${node.name}' não foi declarada antes do uso. Linha ${node.line || '?'}.`);
+                    err.type = 'Erro Semântico Arduino';
+                    err.line = node.line || null;
+                    throw err;
+                }
+                return;
+
+            case 'IfStatement':
+                scopes.push(new Set());
+                traverse(node.consequent);
+                scopes.pop();
+                if (node.alternate) {
+                    scopes.push(new Set());
+                    traverse(node.alternate);
+                    scopes.pop();
+                }
+                return;
+
+            case 'WhileStatement':
+                scopes.push(new Set());
+                traverse(node.body);
+                scopes.pop();
+                return;
+
+            case 'CallExpression':
+                return;
         }
     }
+
     traverse(ast);
     return logs.join('\n');
 }
 
-// GERADOR C++ AVANÇADO
-function translateVal(val) {
-    if (val === 'sim') return 'true';
-    if (val === 'nao') return 'false';
-    return val;
+function escapeCppString(value) {
+    return String(value)
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t');
 }
 
-function codeGeneratorCpp(node) {
-    if (Array.isArray(node)) return node.map(codeGeneratorCpp).join('\n');
-    
-    switch (node.type) {
-        case 'Program':
-            let espBlocks = node.body.filter(n => n.type === 'EnvironmentBlock' && n.environment === 'esp').map(codeGeneratorCpp).join('\n');
-            if(espBlocks.trim().length > 0) {
-                // Truque avançado: cria um iniciar() fraco para a IDE do Arduino não dar erro caso o utilizador não crie a tarefa principal
-                return `// CÓDIGO C++ GERADO PARA HARDWARE\n\n${espBlocks}\n\nvoid setup() {\n  Serial.begin(115200);\n  iniciar();\n}\n\nvoid loop() {\n  // Lógica principal rola nas tarefas\n}`;
-            }
-            return '';
-        case 'EnvironmentBlock': return node.environment === 'esp' ? codeGeneratorCpp(node.body) : '';
-        case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const int' : 'int'} ${node.name} = ${node.value.map(n => translateVal(n.value)).join('')};`;
-        case 'FunctionDeclaration': return `void ${node.name}(${node.params.map(p => `String ${p}`).join(', ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
-        case 'IfStatement':
-            let ifCode = `if (${node.condition.map(n => translateVal(n.value)).join(' ')}) {\n  ${codeGeneratorCpp(node.consequent)}\n}`;
-            if (node.alternate) ifCode += ` else {\n  ${codeGeneratorCpp(node.alternate)}\n}`;
-            return ifCode;
-        case 'WhileStatement':
-            return `while (${node.condition.map(n => translateVal(n.value)).join(' ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
-        case 'CallExpression': 
-            // Ignora os comandos visuais da Web
-            if (['caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca', 'tema'].includes(node.name)) {
-                return '';
-            }
-            if(node.name === 'mostra') return `Serial.println(${node.arguments.map(n => '"' + n.value + '"').join(' ')});`;
-            if(node.name === 'espera') {
-                let time = node.arguments[0] ? node.arguments[0].value : '1000';
-                return `delay(${time});`;
-            }
-            if(node.name === 'envia') {
-                let pin = node.arguments[0] ? node.arguments[0].value : '0';
-                let state = node.arguments[1] ? node.arguments[1].value : '0';
-                return `pinMode(${pin}, OUTPUT);\n  digitalWrite(${pin}, ${state});`;
-            }
-            // Retorno padrão para tarefas personalizadas
-            return `${node.name}(${node.arguments.map(n => translateVal(n.value)).join(', ')});`;
-        case 'AssignmentExpression':
-            return `${node.name} = ${node.value.map(n => translateVal(n.value)).join('')};`;
-        default: return '';
+function translateToken(token) {
+    if (!token) return '';
+    if (token.type === 'string') return `"${escapeCppString(token.value)}"`;
+    if (token.value === 'sim') return 'true';
+    if (token.value === 'nao') return 'false';
+    if (token.value === 'nulo') return 'NULL';
+    return String(token.value);
+}
+
+function translateExpression(tokens, separator = '') {
+    return tokens.map(translateToken).join(separator).trim();
+}
+
+function translateArgument(argTokens) {
+    return translateExpression(argTokens);
+}
+
+function inferCppType(tokens, constant) {
+    if (!tokens || tokens.length === 0) return constant ? 'const int' : 'int';
+    if (tokens.length === 1) {
+        const token = tokens[0];
+        if (token.type === 'string') return constant ? 'const String' : 'String';
+        if (token.value === 'sim' || token.value === 'nao') return constant ? 'const bool' : 'bool';
+        if (token.type === 'number' && String(token.value).includes('.')) return constant ? 'const float' : 'float';
     }
+    return constant ? 'const int' : 'int';
+}
+
+function indent(code, spaces = 2) {
+    const prefix = ' '.repeat(spaces);
+    return code
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => prefix + line)
+        .join('\n');
+}
+
+function codeGeneratorCpp(ast) {
+    const setupCalls = [];
+    const loopCalls = [];
+
+    function generate(node) {
+        if (!node) return '';
+        if (Array.isArray(node)) return node.map(generate).filter(Boolean).join('\n');
+
+        switch (node.type) {
+            case 'Program': {
+                const hardwareBlocks = node.body.filter(n => n.type === 'EnvironmentBlock' && (n.environment === 'arduino' || n.environment === 'esp'));
+                if (hardwareBlocks.length === 0) return '';
+
+                const body = hardwareBlocks.map(generate).filter(Boolean).join('\n\n');
+
+                return `#include <Arduino.h>\n\n// CÓDIGO C++ GERADO PELA SOL IDE\n\n${body}\n\nvoid setup() {\n  Serial.begin(115200);\n${setupCalls.length ? indent(setupCalls.join('\n')) : '  // Sem tarefa iniciar[] definida.'}\n}\n\nvoid loop() {\n${loopCalls.length ? indent(loopCalls.join('\n')) : '  // Sem tarefa repetir[] definida.'}\n}`;
+            }
+
+            case 'EnvironmentBlock':
+                return generate(node.body);
+
+            case 'VariableDeclaration': {
+                const isConst = node.kind === 'crava';
+                const cppType = inferCppType(node.value, isConst);
+                const value = translateExpression(node.value);
+                return `${cppType} ${node.name} = ${value};`;
+            }
+
+            case 'FunctionDeclaration': {
+                const params = node.params.map(p => `String ${p}`).join(', ');
+                let cppName = node.name;
+
+                if (node.name === 'iniciar') setupCalls.push('iniciar();');
+                if (node.name === 'repetir') loopCalls.push('repetir();');
+
+                const body = generate(node.body);
+                return `void ${cppName}(${params}) {\n${indent(body)}\n}`;
+            }
+
+            case 'IfStatement': {
+                const condition = translateExpression(node.condition, ' ');
+                let code = `if (${condition}) {\n${indent(generate(node.consequent))}\n}`;
+                if (node.alternate) code += ` else {\n${indent(generate(node.alternate))}\n}`;
+                return code;
+            }
+
+            case 'WhileStatement': {
+                const condition = translateExpression(node.condition, ' ');
+                return `while (${condition}) {\n${indent(generate(node.body))}\n}`;
+            }
+
+            case 'AssignmentExpression':
+                return `${node.name} = ${translateExpression(node.value)};`;
+
+            case 'CallExpression':
+                return generateCall(node);
+
+            default:
+                return '';
+        }
+    }
+
+    function generateCall(node) {
+        const name = node.name;
+        const args = node.arguments.map(translateArgument);
+
+        // Comandos web são ignorados no compilador Arduino.
+        if (['caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca', 'tema'].includes(name)) {
+            return '';
+        }
+
+        if (name === 'mostra') {
+            if (args.length === 0) return 'Serial.println();';
+            if (args.length === 1) return `Serial.println(${args[0]});`;
+            return args.map(arg => `Serial.print(${arg});`).join('\n') + '\nSerial.println();';
+        }
+
+        if (name === 'espera') {
+            return `delay(${args[0] || '1000'});`;
+        }
+
+        // envia[pino, valor] -> digitalWrite
+        // Ex.: envia[2, sim] ou envia[led, 1]
+        if (name === 'envia' || name === 'manda') {
+            const pin = args[0] || '0';
+            let state = args[1] || 'LOW';
+            if (state === 'true') state = 'HIGH';
+            if (state === 'false') state = 'LOW';
+            return `pinMode(${pin}, OUTPUT);\ndigitalWrite(${pin}, ${state});`;
+        }
+
+        // le[pino] -> digitalRead(pino) como expressão não é perfeito em chamada solta,
+        // mas permite usar mostra[leitura] com variáveis no futuro.
+        if (name === 'le') {
+            const pin = args[0] || '0';
+            return `digitalRead(${pin});`;
+        }
+
+        // pwm[pino, valor] -> analogWrite
+        if (name === 'pwm') {
+            const pin = args[0] || '0';
+            const value = args[1] || '0';
+            return `pinMode(${pin}, OUTPUT);\nanalogWrite(${pin}, ${value});`;
+        }
+
+        return `${name}(${args.join(', ')});`;
+    }
+
+    return generate(ast);
 }
 
 function compileEsp(code) {
-    let executionLogs = "";
+    let executionLogs = '';
+
     try {
         const tokens = lexicalAnalyzer(code);
         const ast = syntaxAnalyzer(tokens);
-        executionLogs += semanticAnalyzer(ast) + "\n";
-        
-        let cppCode = codeGeneratorCpp(ast);
-        let hasEspBlock = ast.body.some(n => n.type === 'EnvironmentBlock' && n.environment === 'esp');
-        let generatedCpp = null;
+        executionLogs += semanticAnalyzer(ast) + '\n';
 
-        if (hasEspBlock) {
-            generatedCpp = cppCode;
-            executionLogs += "✓ Motor ESP32: Esqueleto C++ gerado com sucesso.\n";
+        const hasHardwareBlock = ast.body.some(n => n.type === 'EnvironmentBlock' && (n.environment === 'arduino' || n.environment === 'esp'));
+        const generatedCpp = hasHardwareBlock ? codeGeneratorCpp(ast) : null;
+
+        if (generatedCpp) {
+            executionLogs += '✓ Motor Arduino: código C++/.ino gerado com sucesso.\n';
         } else {
-            executionLogs += "✓ Motor ESP32: Nenhum bloco 'esp' detectado para compilar.\n";
+            executionLogs += "✓ Motor Arduino: nenhum bloco 'arduino' ou 'esp' detectado para compilar.\n";
         }
 
-        return { status: "success", logs: executionLogs, generatedCpp };
+        return { status: 'success', logs: executionLogs, generatedCpp, ast };
     } catch (error) {
-        let errMsg = error.message;
-        if(error.type) {
-            errMsg = `[${error.type} na Linha ${error.line}]: ${error.message}`;
-        }
-        return { status: "error", logs: executionLogs + "\n❌ ERRO ESP32: " + errMsg };
+        const line = error.line || null;
+        const column = error.column || null;
+        const type = error.type || 'Erro Arduino';
+        const message = error.message || String(error);
+
+        return {
+            status: 'error',
+            logs: `${executionLogs}\n❌ ${type}: ${message}\n`,
+            errorDetails: [{ type, message, line, column }]
+        };
     }
 }
 
-module.exports = { compileEsp };
+module.exports = { compileEsp, syntaxAnalyzer, semanticAnalyzer, codeGeneratorCpp };
