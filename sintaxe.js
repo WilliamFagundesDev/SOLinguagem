@@ -37,7 +37,7 @@ function syntaxAnalyzer(tokens) {
         let token = tokens[current];
         let pos = { line: token.line, column: token.column };
 
-        if (token.type === 'keyword' && (token.value === 'arduino' || token.value === 'esp' || token.value === 'web')) {
+        if (token.type === 'keyword' && (token.value === 'esp' || token.value === 'web')) {
             let envName = token.value; current++; 
             let body = [];
             while (current < tokens.length && !(tokens[current].type === 'keyword' && tokens[current].value === envName)) {

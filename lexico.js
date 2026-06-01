@@ -1,7 +1,7 @@
 // =========================================================
 // MÓDULO LÉXICO (LEXER) - SOLINGUAGEM
 // Analisador profissional, extraído para garantir que o 
-// Arduino/ESP32 e a WEB sigam rigorosamente as mesmas regras.
+// ESP32 e a WEB sigam rigorosamente as mesmas regras.
 // =========================================================
 
 const KEYWORDS = [
@@ -15,7 +15,7 @@ const KEYWORDS = [
     'sim', 'nao', 'nulo',
     
     // Escopos de Ambiente
-    'arduino', 'esp', 'web',
+    'esp', 'web',
     
     // Comandos de I/O e Elementos UI
     'gira', 'mostra', 'manda', 'envia', 'tema', 'caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca',
