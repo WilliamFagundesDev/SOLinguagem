@@ -2,21 +2,40 @@ import { state } from './state.js';
 
 export function setupTerminalAndCompiler() {
     const btnCompile = document.getElementById("btn-compile");
+    const btnConnectEsp = document.getElementById("btn-conectar-esp");
 
     if (btnCompile) {
         btnCompile.addEventListener("click", async () => {
             const currentFile = state.files[state.activeIndex];
             const code = state.editor.getValue();
+            
+            // Nova validação: Se o código for para ESP, exige a porta salva
+            if (code.trim().startsWith("esp")) {
+                const portaSalva = sessionStorage.getItem('esp_port');
+                if (!portaSalva) {
+                    state.terminal.innerText += "\n> ❌ Erro: Nenhuma porta selecionada. Conecte o ESP primeiro!\n";
+                    state.terminal.scrollTop = state.terminal.scrollHeight;
+                    return; // Interrompe a execução aqui, não envia para o backend
+                }
+            }
+
             state.terminal.innerText = "🚀 Iniciando compilação...\n";
 
             state.currentErrorMarks.forEach(mark => mark.clear());
             state.currentErrorMarks = [];
 
             try {
+                // Recupera a porta (pode ser null se for ambiente web, não tem problema)
+                const portaSalva = sessionStorage.getItem('esp_port');
+
                 const response = await fetch('/compile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code, filename: currentFile.name })
+                    body: JSON.stringify({ 
+                        code: code, 
+                        filename: currentFile.name,
+                        port: portaSalva // Enviando a porta para o servidor poder usar
+                    })
                 });
                 const result = await response.json();
                 state.terminal.innerText += result.logs;
@@ -59,7 +78,44 @@ export function setupTerminalAndCompiler() {
                         state.currentErrorMarks.push(mark);
                     });
                 }
-            } catch (error) { state.terminal.innerText += "⚠️ Erro: " + error.message; }
+            } catch (error) { 
+                state.terminal.innerText += "⚠️ Erro: " + error.message; 
+            }
+            
+            state.terminal.scrollTop = state.terminal.scrollHeight;
+        });
+    }
+
+    if (btnConnectEsp) {
+        btnConnectEsp.addEventListener("click", async () => {
+            state.terminal.innerText += "\n> 🔎 Escaneando portas USB...\n";
+            state.terminal.scrollTop = state.terminal.scrollHeight;
+            
+            try {
+                const response = await fetch('/detect-esp');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const porta = result.port;
+                    const nome = result.name;
+                    
+                    // Salva a porta no sessionStorage para usar na hora de compilar/enviar
+                    sessionStorage.setItem('esp_port', porta);
+                    
+                    state.terminal.innerText += `> ✅ Dispositivo identificado com sucesso!\n`;
+                    state.terminal.innerText += `  📍 Porta: ${porta}\n`;
+                    state.terminal.innerText += `  🔌 Dispositivo: ${nome}\n`;
+                    state.terminal.innerText += `  ⚙️ Protocolo: ${result.protocol}\n`;
+                    state.terminal.innerText += `> 💾 Porta '${porta}' armazenada na sessão. Pronta para gravação.\n`;
+                } else {
+                    state.terminal.innerText += `> ⚠️ Não foi possível encontrar o ESP.\n`;
+                    state.terminal.innerText += `  Detalhes: ${result.message}\n`;
+                }
+            } catch (error) {
+                state.terminal.innerText += `\n> ❌ Falha na comunicação com a base: ${error.message}\n`;
+            }
+            
+            state.terminal.scrollTop = state.terminal.scrollHeight;
         });
     }
 

@@ -6,6 +6,7 @@ const { compileWeb } = require('./compilerWeb');
 const { compileEsp } = require('./compilerEsp'); 
 const { processTerminalCommand } = require('./terminal'); 
 const { installArduinoCLI } = require('./arduinoCLI');
+const { exec } = require('child_process');
 
 const app = express();
 const PORT = 3000;
@@ -104,6 +105,59 @@ app.get('/install-arduino-cli-stream', (req, res) => {
     // Se o usuário fechar a IDE no meio do processo
     req.on('close', () => {
         console.log("Conexão de instalação encerrada pelo cliente.");
+    });
+});
+
+app.get('/detect-esp', (req, res) => {
+    exec('arduino-cli board list --format json', (error, stdout, stderr) => {
+        try {
+            if (!stdout || stdout.trim() === '') {
+                return res.json({ 
+                    success: false, 
+                    message: 'arduino-cli não retornou nada. O serviço está a correr?' 
+                });
+            }
+
+            const jsonMatch = stdout.match(/\[.*\]/s);
+            
+            if (!jsonMatch) {
+                return res.json({ 
+                    success: false, 
+                    message: 'Saída inválida do arduino-cli. Verifique o terminal do servidor.' 
+                });
+            }
+
+            const boards = JSON.parse(jsonMatch[0]);
+            
+            // FILTRO ATUALIZADO:
+            // Só aceita a porta se tiver a propriedade 'vid' (Vendor ID).
+            // Isto ignora as portas COM nativas do Windows e portas Bluetooth.
+            const connectedPorts = boards.filter(b => 
+                b.port && 
+                b.port.address && 
+                b.port.properties && 
+                b.port.properties.vid
+            );
+            
+            if (connectedPorts.length > 0) {
+                const device = connectedPorts[0]; 
+                const porta = device.port.address;
+                const protocolo = device.port.protocol;
+                
+                let nome = 'Dispositivo USB (Possível ESP)';
+                if (device.matching_boards && device.matching_boards.length > 0) {
+                    nome = device.matching_boards[0].name;
+                } else if (device.port.properties && device.port.properties.name) {
+                    nome = device.port.properties.name;
+                }
+
+                res.json({ success: true, port: porta, protocol: protocolo, name: nome });
+            } else {
+                res.json({ success: false, message: 'Nenhum dispositivo físico USB detetado.' });
+            }
+        } catch (err) {
+            res.json({ success: false, message: `Falha na leitura dos dados: ${err.message}` });
+        }
     });
 });
 
