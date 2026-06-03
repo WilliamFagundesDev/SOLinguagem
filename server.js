@@ -7,6 +7,8 @@ const { compileEsp } = require('./compilerEsp');
 const { processTerminalCommand } = require('./terminal'); 
 const { installArduinoCLI } = require('./arduinoCLI');
 const { exec } = require('child_process');
+const fs = require('fs');
+const { execSync, spawn } = require('child_process');
 
 const app = express();
 const PORT = 3000;
@@ -16,13 +18,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/compile', (req, res) => {
     const solCode = req.body.code.trim(); 
+    const porta = req.body.port; // Captura a porta enviada pelo frontend
     
     console.log("Codigo recebido da IDE. Roteando ambiente...");
 
     let combinedLogs = "";
     let finalStatus = "success";
     let generatedWeb = null;
-    let generatedCpp = null; // <-- ADICIONADO: Variável para guardar o C++ gerado
+    let generatedCpp = null; 
     let errorDetails = []; 
 
     if (solCode.startsWith("web") && solCode.endsWith("web")) {
@@ -37,22 +40,52 @@ app.post('/compile', (req, res) => {
         }
     } 
     else if (solCode.startsWith("esp") && solCode.endsWith("esp")) {
-        combinedLogs += "=== DETECTADO AMBIENTE: ESP32 ===\n";
+        combinedLogs += "=== DETECTADO AMBIENTE: ESP8266 ===\n";
         const espResult = compileEsp(solCode);
         combinedLogs += espResult.logs + "\n";
         
-        generatedCpp = espResult.generatedCpp; // <-- ADICIONADO: Capturando o código C++ do compilador
+        generatedCpp = espResult.generatedCpp; 
         
         if (espResult.status === 'error') {
             finalStatus = 'error';
             if (espResult.errorDetails) errorDetails = espResult.errorDetails;
+        } 
+        // Se a transpilação interna do SOL funcionou e temos a porta informada:
+        else if (finalStatus === "success" && porta) {
+            combinedLogs += `\n[SOL] Preparando transferência direta para a porta ${porta}...\n`;
+            
+            try {
+                // O arduino-cli exige que o arquivo .ino fique dentro de uma pasta com o mesmo nome.
+                const sketchDir = path.join(__dirname, 'build_hardware', 'esp_sketch');
+                if (!fs.existsSync(sketchDir)) {
+                    fs.mkdirSync(sketchDir, { recursive: true });
+                }
+                
+                const inoPath = path.join(sketchDir, 'esp_sketch.ino');
+                fs.writeFileSync(inoPath, generatedCpp);
+                
+                // Altere o FQBN () caso use uma variante específica (S3, C3, etc.)
+                const fqbn = "esp8266:esp8266:nodemcuv2";
+                
+                combinedLogs += "[arduino-cli] Compilando binários do hardware...\n";
+                const compileOutput = execSync(`arduino-cli compile --fqbn ${fqbn} "${sketchDir}"`, { encoding: 'utf-8' });
+                combinedLogs += compileOutput + "\n";
+                
+                combinedLogs += `[arduino-cli] Fazendo upload na porta ${porta}...\n`;
+                const uploadOutput = execSync(`arduino-cli upload -p ${porta} --fqbn ${fqbn} "${sketchDir}"`, { encoding: 'utf-8' });
+                combinedLogs += uploadOutput + "\n";
+                
+                combinedLogs += "🚀 Gravação concluída com sucesso diretamente no ESP8266!\n";
+            } catch (cliError) {
+                finalStatus = 'error';
+                // Retorna as mensagens de erro geradas pelo próprio compilador do arduino-cli
+                combinedLogs += `\n❌ FALHA NO PROCESSO DE GRAVAÇÃO:\n${cliError.stdout || cliError.message}\n`;
+            }
         }
     } 
     else {
         finalStatus = 'error';
         combinedLogs += "❌ ERRO ESTRUTURAL: O código fornecido é inválido.\n";
-        combinedLogs += "-> Para interface gráfica, o código DEVE começar com 'web' e terminar com 'web'.\n";
-        combinedLogs += "-> Para hardware IoT, o código DEVE começar com 'esp' e terminar com 'esp'.\n";
     }
 
     res.json({ 
@@ -60,8 +93,70 @@ app.post('/compile', (req, res) => {
         message: "Operação finalizada.",
         logs: combinedLogs,
         generatedWeb: generatedWeb,
-        generatedCpp: generatedCpp, // <-- ADICIONADO: Enviando o C++ para o frontend
+        generatedCpp: generatedCpp, 
         errorDetails: errorDetails 
+    });
+});
+
+app.post('/compile-esp-stream', (req, res) => {
+    const solCode = req.body.code.trim();
+    const porta = req.body.port;
+
+    // Configura o cabeçalho para enviar dados picotados (Chunked Stream)
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    res.write("=== DETECTADO AMBIENTE: ESP8266 ===\n");
+    
+    // Roda sua validação e transpilação normal da linguagem SOL
+    const espResult = compileEsp(solCode);
+    res.write(espResult.logs + "\n");
+    
+    if (espResult.status === 'error') {
+        return res.end("\n❌ Erro de sintaxe na linguagem SOL. Verifique seu código.\n");
+    }
+
+    res.write(`[SOL] Preparando transferência direta para a porta ${porta}...\n`);
+    
+    const sketchDir = path.join(__dirname, 'build_hardware', 'esp_sketch');
+    if (!fs.existsSync(sketchDir)) {
+        fs.mkdirSync(sketchDir, { recursive: true });
+    }
+    
+    const inoPath = path.join(sketchDir, 'esp_sketch.ino');
+    fs.writeFileSync(inoPath, espResult.generatedCpp);
+    
+    const fqbn = "esp8266:esp8266:nodemcuv2";
+    
+    res.write("\n[arduino-cli] Compilando binários do hardware... ⏳\n");
+    
+    // Usamos spawn no lugar de execSync para não travar o servidor
+    const compileProc = spawn('arduino-cli', ['compile', '--fqbn', fqbn, sketchDir]);
+    
+    // Manda cada linha gerada pela compilação direto para a IDE
+    compileProc.stdout.on('data', data => res.write(data.toString()));
+    compileProc.stderr.on('data', data => res.write(data.toString()));
+    
+    compileProc.on('close', code => {
+        if (code !== 0) {
+            return res.end(`\n❌ FALHA NA COMPILAÇÃO. Código de erro: ${code}\n`);
+        }
+        
+        res.write(`\n[arduino-cli] Iniciando upload na porta ${porta}... ⏳\n`);
+        const uploadProc = spawn('arduino-cli', ['upload', '-p', porta, '--fqbn', fqbn, sketchDir]);
+        
+        // É aqui que a mágica da barra de progresso acontece! 
+        // O esptool (que roda por trás) vai atualizando as porcentagens (Ex: 10%, 25%...)
+        uploadProc.stdout.on('data', data => res.write(data.toString()));
+        uploadProc.stderr.on('data', data => res.write(data.toString()));
+        
+        uploadProc.on('close', upCode => {
+            if (upCode !== 0) {
+                return res.end(`\n❌ FALHA NO UPLOAD. Código de erro: ${upCode}\n`);
+            }
+            // Encerra a conexão e dá o feedback final
+            res.end("\n🚀 Gravação concluída com sucesso diretamente no ESP8266!\n✨ Processo de hardware finalizado.\n");
+        });
     });
 });
 

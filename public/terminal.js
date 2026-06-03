@@ -3,39 +3,69 @@ import { state } from './state.js';
 export function setupTerminalAndCompiler() {
     const btnCompile = document.getElementById("btn-compile");
     const btnConnectEsp = document.getElementById("btn-conectar-esp");
+    const btnInstalarCli = document.getElementById("btn-instalar-cli");
 
     if (btnCompile) {
         btnCompile.addEventListener("click", async () => {
             const currentFile = state.files[state.activeIndex];
             const code = state.editor.getValue();
             
-            // Nova validação: Se o código for para ESP, exige a porta salva
+            state.currentErrorMarks.forEach(mark => mark.clear());
+            state.currentErrorMarks = [];
+
+            // ==========================================
+            // NOVO FLUXO: ESP32 COM STREAMING EM TEMPO REAL
+            // ==========================================
             if (code.trim().startsWith("esp")) {
                 const portaSalva = sessionStorage.getItem('esp_port');
                 if (!portaSalva) {
                     state.terminal.innerText += "\n> ❌ Erro: Nenhuma porta selecionada. Conecte o ESP primeiro!\n";
                     state.terminal.scrollTop = state.terminal.scrollHeight;
-                    return; // Interrompe a execução aqui, não envia para o backend
+                    return;
                 }
+
+                state.terminal.innerText = "🚀 Conectando ao compilador de hardware...\n";
+
+                try {
+                    const response = await fetch('/compile-esp-stream', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            code: code, 
+                            filename: currentFile.name,
+                            port: portaSalva 
+                        })
+                    });
+
+                    // Lê a resposta em pedaços contínuos (Streaming)
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        
+                        // Joga o texto no terminal assim que ele chega do Arduino CLI
+                        state.terminal.innerText += decoder.decode(value);
+                        state.terminal.scrollTop = state.terminal.scrollHeight;
+                    }
+                } catch (error) { 
+                    state.terminal.innerText += "\n⚠️ Erro de rede: " + error.message; 
+                }
+                
+                state.terminal.scrollTop = state.terminal.scrollHeight;
+                return; // Interrompe para não executar a parte Web
             }
 
-            state.terminal.innerText = "🚀 Iniciando compilação...\n";
-
-            state.currentErrorMarks.forEach(mark => mark.clear());
-            state.currentErrorMarks = [];
-
+            // ==========================================
+            // FLUXO ORIGINAL: COMPILAÇÃO WEB
+            // ==========================================
+            state.terminal.innerText = "🚀 Iniciando compilação Web...\n";
             try {
-                // Recupera a porta (pode ser null se for ambiente web, não tem problema)
-                const portaSalva = sessionStorage.getItem('esp_port');
-
                 const response = await fetch('/compile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        code: code, 
-                        filename: currentFile.name,
-                        port: portaSalva // Enviando a porta para o servidor poder usar
-                    })
+                    body: JSON.stringify({ code: code, filename: currentFile.name })
                 });
                 const result = await response.json();
                 state.terminal.innerText += result.logs;
@@ -52,22 +82,6 @@ export function setupTerminalAndCompiler() {
                     document.body.removeChild(a);
 
                     URL.revokeObjectURL(url);
-
-                } else if (result.status === "success" && result.generatedCpp) {
-                    const blob = new Blob([result.generatedCpp], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = currentFile.name.replace('.sol', '.ino');
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-
-                    URL.revokeObjectURL(url);
-
-                    state.terminal.innerText += "\n Arquivo .ino gerado com sucesso.\n";
-
                 } else if (result.status === "error" && result.errorDetails && result.errorDetails.length > 0) {
                     result.errorDetails.forEach(err => {
                         const lineIdx = err.line - 1;
@@ -146,6 +160,61 @@ export function setupTerminalAndCompiler() {
                     state.terminal.innerText += `⚠️ Erro de rede: ${error.message}\n`;
                 }
             }
+        });
+    }
+
+    if (btnInstalarCli) {
+        btnInstalarCli.addEventListener("click", () => {
+            const progressContainer = document.getElementById('cli-progress-container');
+            const progressText = document.getElementById('cli-progress-text');
+            const progressBar = document.getElementById('cli-progress-bar');
+            
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+            
+            state.terminal.innerText += "\n> 🔌 Iniciando pacote de instalação (CLI + ESP8266)...\n";
+            state.terminal.scrollTop = state.terminal.scrollHeight;
+
+            // Abre a conexão em tempo real com o servidor
+            const source = new EventSource('/install-arduino-cli-stream');
+
+            source.addEventListener('log', (e) => {
+                const data = JSON.parse(e.data);
+                state.terminal.innerText += data;
+                state.terminal.scrollTop = state.terminal.scrollHeight;
+            });
+
+            source.addEventListener('progress', (e) => {
+                const data = JSON.parse(e.data);
+                progressBar.style.width = data + '%';
+                progressText.innerText = data + '%';
+            });
+
+            source.addEventListener('done', (e) => {
+                const data = JSON.parse(e.data);
+                state.terminal.innerText += `\n> ✅ ${data}\n`;
+                state.terminal.scrollTop = state.terminal.scrollHeight;
+                
+                progressBar.style.width = '100%';
+                progressText.innerText = '100%';
+                setTimeout(() => progressContainer.style.display = 'none', 3000); // Esconde a barra após 3 segundos
+                source.close();
+            });
+
+            source.addEventListener('error', (e) => {
+                const data = JSON.parse(e.data);
+                state.terminal.innerText += `\n> ❌ ${data}\n`;
+                state.terminal.scrollTop = state.terminal.scrollHeight;
+                
+                progressBar.style.background = '#bf616a'; // Fica vermelho se der erro
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.background = '#a3be8c'; // Restaura a cor verde original
+                }, 5000);
+                
+                source.close();
+            });
         });
     }
 }
