@@ -109,6 +109,7 @@ function codeGenerator(node) {
             let argsArr = [];
             let currentArg = [];
             node.arguments.forEach(t => {
+                // Se encontrar uma vírgula, agrupa o que foi lido até agora (ajuda na conversão do MQTT)
                 if (t.value === ',') { argsArr.push(tokensToJS(currentArg)); currentArg = []; } 
                 else currentArg.push(t);
             });
@@ -118,6 +119,7 @@ function codeGenerator(node) {
             if (node.name === 'limpa') return `let appNode = document.getElementById('app'); if(appNode) appNode.innerHTML = ''; else document.body.innerHTML = '';`;
             if (node.name === 'mostra') return `console.log(${argsArr.join(', ')});`;
             
+            // Retorno padrão Web: Como tokensToJS já lida com strings, isso irá funcionar de forma limpa!
             return `${node.name}(${argsArr.join(', ')});`;
         default: return '';
     }
@@ -151,6 +153,53 @@ function compileWeb(code) {
         let hasWebBlock = syntaxResult.ast.body.some(n => n.type === 'EnvironmentBlock' && n.environment === 'web');
         let generatedWeb = null;
 
+        // Verifica se há dependências MQTT no código gerado da web
+        let usaMQTT = webJS.includes("conectaBrokerWeb") || webJS.includes("mqttPublica") || webJS.includes("mqttAssina");
+        
+        let mqttCDN = usaMQTT ? `<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>` : "";
+        let mqttWrappers = usaMQTT ? `
+        // ==========================================
+        // DEPENDÊNCIAS MQTT INJETADAS AUTOMATICAMENTE
+        // ==========================================
+        let mqttClient = null;
+        
+        window.conectaBrokerWeb = function(broker, porta) {
+            console.log("Iniciando conexão MQTT WebSocket...");
+            // Verifica o protocolo da pagina para evitar erros de Mixed Content (http x https)
+            let protocolo = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            let url = protocolo + broker + ':' + porta + '/mqtt';
+            
+            mqttClient = mqtt.connect(url);
+            
+            mqttClient.on('connect', function() {
+                console.log("✅ Web Conectada ao Broker MQTT!");
+            });
+            
+            mqttClient.on('message', function(topic, message) {
+                if (typeof window['mqttCallback'] === 'function') {
+                    window['mqttCallback'](topic, message.toString());
+                }
+            });
+        };
+
+        window.mqttPublica = function(topico, mensagem) {
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish(topico, String(mensagem));
+                console.log("📤 MQTT Enviado -> " + topico + ": " + mensagem);
+            } else {
+                console.log("❌ Erro: MQTT não está conectado para publicar.");
+            }
+        };
+
+        window.mqttAssina = function(topico) {
+            if (mqttClient) {
+                mqttClient.subscribe(topico);
+                console.log("📥 MQTT Assinado: " + topico);
+            }
+        };
+        // ==========================================
+        ` : "";
+
         if (hasWebBlock) {
             generatedWeb = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -158,6 +207,7 @@ function compileWeb(code) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplicação SOL</title>
+    ${mqttCDN}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: #06060a; color: #f0f0f5; overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
@@ -188,6 +238,9 @@ function compileWeb(code) {
             }
             oldLog.apply(console, arguments);
         };
+        
+        ${mqttWrappers}
+        
         // === CÓDIGO SOL GERADO ===
         ${webJS}
         if (typeof iniciar === "function") iniciar();
@@ -195,6 +248,7 @@ function compileWeb(code) {
 </body>
 </html>`;
             executionLogs += "✓ Motor WEB: HTML e Código gerados com Sucesso.\n";
+            if(usaMQTT) executionLogs += "✓ Dependências MQTT injetadas na WEB!\n";
         } else {
             executionLogs += "✓ Motor WEB: Nenhum bloco 'web' detectado.\n";
         }

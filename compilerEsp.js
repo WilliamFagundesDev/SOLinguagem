@@ -149,13 +149,13 @@ function semanticAnalyzer(ast) {
         if (Array.isArray(node)) { node.forEach(traverse); return; }
         switch (node.type) {
             case 'Program': node.body.forEach(traverse); break;
-            case 'EnvironmentBlock': if(node.environment === 'esp') logs.push(`\n🔌 [ESP32] Analisando hardware...`); node.body.forEach(traverse); break;
+            case 'EnvironmentBlock': if(node.environment === 'esp') logs.push(`\n🔌 [ESP32/8266] Analisando hardware...`); node.body.forEach(traverse); break;
             case 'FunctionDeclaration':
                 if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): A tarefa '${node.name}' já existe!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [ESP32] Rotina alocada -> ${node.name}()`); traverse(node.body); break;
+                symbolUniverse.add(node.name); logs.push(`⚙️ [Hardware] Rotina alocada -> ${node.name}()`); traverse(node.body); break;
             case 'VariableDeclaration':
                 if (symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): '${node.name}' já foi declarada!`);
-                symbolUniverse.add(node.name); logs.push(`⚙️ [ESP32] Pino/Memória alocado -> '${node.name}'.`); break;
+                symbolUniverse.add(node.name); logs.push(`⚙️ [Hardware] Pino/Memória alocado -> '${node.name}'.`); break;
             case 'AssignmentExpression':
                 if (!symbolUniverse.has(node.name)) throw new Error(`Erro Semântico (ESP): Variável '${node.name}' não existe!`); break;
             case 'IfStatement': traverse(node.consequent); if (node.alternate) traverse(node.alternate); break;
@@ -168,10 +168,11 @@ function semanticAnalyzer(ast) {
 }
 
 // GERADOR C++ AVANÇADO
-function translateVal(val) {
-    if (val === 'sim') return 'true';
-    if (val === 'nao') return 'false';
-    return val;
+function translateValNode(n) {
+    if (n.type === 'string') return '"' + n.value + '"';
+    if (n.value === 'sim') return 'true';
+    if (n.value === 'nao') return 'false';
+    return n.value;
 }
 
 function codeGeneratorCpp(node) {
@@ -181,25 +182,109 @@ function codeGeneratorCpp(node) {
         case 'Program':
             let espBlocks = node.body.filter(n => n.type === 'EnvironmentBlock' && n.environment === 'esp').map(codeGeneratorCpp).join('\n');
             if(espBlocks.trim().length > 0) {
+                let boilerplate = "";
+                let loopAppend = "";
+                
+                // Detecção automática de dependências (MQTT / Redes)
+                if (espBlocks.includes("conectaWifi") || espBlocks.includes("conectaBroker") || espBlocks.includes("mqttAssina") || espBlocks.includes("mqttPublica")) {
+                    // Verifica se o usuário criou a tarefa de callback nativamente na linguagem SOL
+                    const temCallbackCustomizado = espBlocks.includes("void mqttCallback(");
+                    const chamadaCallback = temCallbackCustomizado ? "mqttCallback(String(topic), msgConvertida);" : "// Nenhuma tarefa mqttCallback foi declarada no SOL";
+
+                    boilerplate = `
+// ==========================================
+// DEPENDÊNCIAS INJETADAS AUTOMATICAMENTE (WIFI/MQTT)
+// Suporte universal a ESP32 e ESP8266
+// ==========================================
+#if defined(ESP8266)
+  #include <ESP8266WiFi.h>
+#elif defined(ESP32)
+  #include <WiFi.h>
+#else
+  #error "Por favor, selecione uma placa ESP32 ou ESP8266 na IDE do Arduino!"
+#endif
+
+#include <PubSubClient.h>
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// Se existir uma tarefa mqttCallback no código SOL, ela será chamada internamente
+${temCallbackCustomizado ? 'void mqttCallback(String topico, String mensagem);' : ''}
+
+void conectaWifi(String ssid, String senha) {
+  WiFi.begin(ssid.c_str(), senha.c_str());
+  Serial.print("Conectando ao WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\\nWiFi Conectado!");
+}
+
+void conectaBrokerWeb(String brokerUrl, String portaStr) {
+  int porta = portaStr.toInt();
+  client.setServer(brokerUrl.c_str(), porta); 
+  while (!client.connected()) {
+    Serial.print("Conectando ao Broker MQTT...");
+    if (client.connect("Dispositivo_SOL_Generico")) {
+      Serial.println("Conectado!");
+    } else {
+      Serial.println("Falhou. Tentando em 2s...");
+      delay(2000);
+    }
+  }
+}
+
+void conectaBroker(String brokerUrl, String portaStr) {
+  conectaBrokerWeb(brokerUrl, portaStr);
+}
+
+void callbackMQTTnativo(char* topic, byte* payload, unsigned int length) {
+  String msgConvertida = "";
+  for (unsigned int i = 0; i < length; i++) {
+    msgConvertida += (char)payload[i];
+  }
+  ${chamadaCallback}
+}
+
+void mqttAssina(String topico) {
+  client.subscribe(topico.c_str());
+  client.setCallback(callbackMQTTnativo);
+}
+
+void mqttPublica(String topico, String mensagem) {
+  client.publish(topico.c_str(), mensagem.c_str());
+}
+// ==========================================
+`;
+                    loopAppend = "  client.loop();\n";
+                }
+
                 // Truque avançado: cria um iniciar() fraco para a IDE do Arduino não dar erro caso o utilizador não crie a tarefa principal
-                return `// CÓDIGO C++ GERADO PARA HARDWARE\n\n${espBlocks}\n\nvoid setup() {\n  Serial.begin(115200);\n  iniciar();\n}\n\nvoid loop() {\n  // Lógica principal rola nas tarefas\n}`;
+                return `// CÓDIGO C++ GERADO PARA HARDWARE\n${boilerplate}\n${espBlocks}\n\nvoid setup() {\n  Serial.begin(115200);\n  iniciar();\n}\n\nvoid loop() {\n  // Lógica principal rola nas tarefas\n${loopAppend}}`;
             }
             return '';
         case 'EnvironmentBlock': return node.environment === 'esp' ? codeGeneratorCpp(node.body) : '';
-        case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const int' : 'int'} ${node.name} = ${node.value.map(n => translateVal(n.value)).join('')};`;
+        case 'VariableDeclaration': return `${node.kind === 'crava' ? 'const int' : 'int'} ${node.name} = ${node.value.map(n => translateValNode(n)).join('')};`;
         case 'FunctionDeclaration': return `void ${node.name}(${node.params.map(p => `String ${p}`).join(', ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
         case 'IfStatement':
-            let ifCode = `if (${node.condition.map(n => translateVal(n.value)).join(' ')}) {\n  ${codeGeneratorCpp(node.consequent)}\n}`;
+            let ifCode = `if (${node.condition.map(n => translateValNode(n)).join(' ')}) {\n  ${codeGeneratorCpp(node.consequent)}\n}`;
             if (node.alternate) ifCode += ` else {\n  ${codeGeneratorCpp(node.alternate)}\n}`;
             return ifCode;
         case 'WhileStatement':
-            return `while (${node.condition.map(n => translateVal(n.value)).join(' ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
+            return `while (${node.condition.map(n => translateValNode(n)).join(' ')}) {\n  ${codeGeneratorCpp(node.body)}\n}`;
         case 'CallExpression': 
             // Ignora os comandos visuais da Web
             if (['caixa', 'texto', 'botao', 'estilo', 'atualiza', 'limpa', 'coloca', 'tema'].includes(node.name)) {
                 return '';
             }
-            if(node.name === 'mostra') return `Serial.println(${node.arguments.map(n => '"' + n.value + '"').join(' ')});`;
+            
+            // CORREÇÃO MOSTRA: Avalia se é string para colocar aspas, ou se é variável (sem aspas)
+            if(node.name === 'mostra') {
+                return `Serial.println(${node.arguments.map(n => translateValNode(n)).join(' ')});`;
+            }
+            
             if(node.name === 'espera') {
                 let time = node.arguments[0] ? node.arguments[0].value : '1000';
                 return `delay(${time});`;
@@ -209,10 +294,12 @@ function codeGeneratorCpp(node) {
                 let state = node.arguments[1] ? node.arguments[1].value : '0';
                 return `pinMode(${pin}, OUTPUT);\n  digitalWrite(${pin}, ${state});`;
             }
-            // Retorno padrão para tarefas personalizadas
-            return `${node.name}(${node.arguments.map(n => translateVal(n.value)).join(', ')});`;
+            
+            // CORREÇÃO MQTT: Retorno padrão para tarefas personalizadas (agora com suporte nativo a strings!)
+            return `${node.name}(${node.arguments.map(n => translateValNode(n)).join(', ')});`;
+            
         case 'AssignmentExpression':
-            return `${node.name} = ${node.value.map(n => translateVal(n.value)).join('')};`;
+            return `${node.name} = ${node.value.map(n => translateValNode(n)).join('')};`;
         default: return '';
     }
 }
@@ -230,9 +317,9 @@ function compileEsp(code) {
 
         if (hasEspBlock) {
             generatedCpp = cppCode;
-            executionLogs += "✓ Motor ESP32: Esqueleto C++ gerado com sucesso.\n";
+            executionLogs += "✓ Motor ESP32/8266: Esqueleto C++ gerado com sucesso.\n";
         } else {
-            executionLogs += "✓ Motor ESP32: Nenhum bloco 'esp' detectado para compilar.\n";
+            executionLogs += "✓ Motor ESP: Nenhum bloco 'esp' detectado para compilar.\n";
         }
 
         return { status: "success", logs: executionLogs, generatedCpp };
@@ -241,7 +328,7 @@ function compileEsp(code) {
         if(error.type) {
             errMsg = `[${error.type} na Linha ${error.line}]: ${error.message}`;
         }
-        return { status: "error", logs: executionLogs + "\n❌ ERRO ESP32: " + errMsg };
+        return { status: "error", logs: executionLogs + "\n❌ ERRO ESP: " + errMsg };
     }
 }
 

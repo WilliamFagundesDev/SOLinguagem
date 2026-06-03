@@ -5,6 +5,7 @@ const path = require('path');
 const { compileWeb } = require('./compilerWeb'); 
 const { compileEsp } = require('./compilerEsp'); 
 const { processTerminalCommand } = require('./terminal'); 
+const { installArduinoCLI } = require('./arduinoCLI');
 
 const app = express();
 const PORT = 3000;
@@ -75,6 +76,41 @@ app.post('/terminal', (req, res) => {
     }
 });
 
+app.post('/install-arduino-cli', async (req, res) => {
+    try {
+        const result = await installArduinoCLI();
+        res.json(result);
+    } catch (error) {
+        res.json({ status: 'error', output: `❌ Erro interno no servidor: ${error.message}` });
+    }
+});
+
+// NOVA ROTA EM TEMPO REAL PARA A INSTALAÇÃO
+app.get('/install-arduino-cli-stream', (req, res) => {
+    // Configura os cabeçalhos para Server-Sent Events (SSE)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Função auxiliar para enviar os eventos formatados para o navegador
+    const sendEvent = (type, data) => {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Inicia a instalação passando a função que cospe os dados
+    installArduinoCLI(sendEvent);
+
+    // Se o usuário fechar a IDE no meio do processo
+    req.on('close', () => {
+        console.log("Conexão de instalação encerrada pelo cliente.");
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`Base de lancamento SOL IDE pronta em http://localhost:${PORT}`);
+});
+
+app.listen(PORT, () => {
+    console.log(`Direitos reservados William Fagundes Dev ©`);
 });

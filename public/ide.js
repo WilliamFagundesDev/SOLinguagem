@@ -77,8 +77,76 @@ menuItems.forEach(item => {
     if (text.includes('Novo Arquivo')) item.onclick = createNewFile;
     if (text.includes('Salvar Projeto')) item.onclick = saveCurrentFile;
     if (text.includes('Exportar Projeto')) item.onclick = exportCurrentFile;
+    if (text.includes('Instalar arduino-cli')) item.onclick = handleInstallArduinoCLI;
     if (text.includes('Trocar Tema')) item.onclick = () => toggleIDETheme(state.terminal);
 });
+
+// ATUALIZE A FUNÇÃO DE INSTALAÇÃO
+function handleInstallArduinoCLI() {
+    state.terminal.textContent += "\n[SISTEMA] Iniciando instalação do Arduino CLI via WinGet...\n";
+    state.terminal.scrollTop = state.terminal.scrollHeight;
+
+    // Pega os elementos da barra de progresso
+    const progressContainer = document.getElementById('cli-progress-container');
+    const progressBar = document.getElementById('cli-progress-bar');
+    const progressText = document.getElementById('cli-progress-text');
+    
+    // Mostra e zera a barra
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+
+    // Conecta na nossa rota SSE
+    const eventSource = new EventSource('/install-arduino-cli-stream');
+
+    // Ouve o texto bruto chegando e joga no terminal
+    eventSource.addEventListener('log', (e) => {
+        const text = JSON.parse(e.data);
+        state.terminal.textContent += text;
+        state.terminal.scrollTop = state.terminal.scrollHeight;
+    });
+
+    // Ouve o evento de porcentagem para animar a barrinha
+    eventSource.addEventListener('progress', (e) => {
+        const percent = JSON.parse(e.data);
+        progressBar.style.width = percent + '%';
+        progressText.textContent = percent + '%';
+        
+        // Se bater 100%, muda a cor para azul claro pra indicar que está extraindo/finalizando
+        if(parseInt(percent) >= 100) {
+            progressText.textContent = 'Extraindo arquivos...';
+            progressBar.style.background = '#81A1C1';
+        }
+    });
+
+    // Ouve a conclusão
+    eventSource.addEventListener('done', (e) => {
+        const msg = JSON.parse(e.data);
+        state.terminal.textContent += `\n[SISTEMA] ✅ ${msg}\n`;
+        state.terminal.scrollTop = state.terminal.scrollHeight;
+        
+        progressBar.style.background = '#A3BE8C'; // Volta pro verde
+        progressText.textContent = 'Finalizado!';
+        progressBar.style.width = '100%';
+        
+        // Esconde a barra suavemente depois de 3 segundos
+        setTimeout(() => { progressContainer.style.display = 'none'; }, 3000); 
+        eventSource.close();
+    });
+
+    // Ouve erros críticos
+    eventSource.addEventListener('error', (e) => {
+        const msg = JSON.parse(e.data);
+        state.terminal.textContent += `\n[ERRO] ❌ ${msg}\n`;
+        state.terminal.scrollTop = state.terminal.scrollHeight;
+        
+        progressBar.style.background = '#BF616A'; // Vermelho de erro
+        progressText.textContent = 'Erro!';
+        
+        setTimeout(() => { progressContainer.style.display = 'none'; }, 4000);
+        eventSource.close();
+    });
+}
 
 // 10. Conectar Terminal e Sistema de Compilação Web/ESP
 setupTerminalAndCompiler();
